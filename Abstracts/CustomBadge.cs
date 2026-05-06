@@ -185,7 +185,7 @@ public abstract class CustomBadge(bool requiresWin, bool multiplayerOnly)// : Ba
             generator.Emit(OpCodes.Ldarg_3);
             generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Ldarg_2);
-            generator.Emit(OpCodes.Call, baseConstructor);
+            generator.Emit(OpCodes.Call, baseConstructor!);
             generator.Emit(OpCodes.Ret);
             
             generatedType = tb.CreateType();
