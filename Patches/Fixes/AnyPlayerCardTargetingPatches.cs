@@ -12,6 +12,8 @@ using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.HoverTips;
 using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Vfx;
+using BaseLib.Utils;
+using System.Reflection;
 using static BaseLib.Patches.Fixes.AnyPlayerCardTargetingHelper;
 
 namespace BaseLib.Patches.Fixes;
@@ -23,7 +25,7 @@ internal static class AnyPlayerCardTargetingHelper
     internal static bool IsAnyPlayerMultiplayer(CardModel? card)
     {
         return card is { TargetType: TargetType.AnyPlayer }
-               && card.Owner.RunState.Players.Count > 1;
+               && (card.Owner?.RunState?.Players?.Count ?? 0) > 1;
     }
 }
 
@@ -60,6 +62,7 @@ internal static class NCardPlayTryPlayCardAnyPlayerPatch
 {
     private static readonly Action<NCardPlay, bool>? CleanupBool = CreateCleanupBool();
     private static readonly Action<NCardPlay>? CleanupVoid = CreateCleanupVoid();
+    private static readonly Action? FocusDefaultControl = CreateFocusDefaultControl();
 
     [HarmonyPrefix]
     private static bool TryPlayAnyPlayer(NCardPlay __instance, Creature? target)
@@ -95,7 +98,7 @@ internal static class NCardPlayTryPlayCardAnyPlayerPatch
             }
 
             InvokeCleanupFinished(__instance, true);
-            NCombatRoom.Instance?.Ui.Hand.TryGrabFocus();
+            FocusAfterPlayed();
         }
         else
         {
@@ -128,6 +131,66 @@ internal static class NCardPlayTryPlayCardAnyPlayerPatch
 
         CleanupVoid?.Invoke(instance);
         instance.EmitSignal(NCardPlay.SignalName.Finished, success);
+    }
+
+    private static Action? CreateFocusDefaultControl()
+    {
+        var t = AccessTools.TypeByName("MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext.ActiveScreenContext");
+        if (t == null) return null;
+
+        var instanceGetterMi = AccessTools.PropertyGetter(t, "Instance");
+        var focusMi = AccessTools.Method(t, "FocusOnDefaultControl");
+        if (instanceGetterMi == null || focusMi == null) return null;
+
+        var getInst = CompileStaticGetterAsObject(instanceGetterMi);
+        var focus = CompileInstanceVoidMethodAsObjectAction(focusMi);
+        if (getInst == null || focus == null) return null;
+
+        return () =>
+        {
+            var inst = getInst();
+            if (inst != null) focus(inst);
+        };
+    }
+
+    private static Func<object?>? CompileStaticGetterAsObject(MethodInfo getter)
+    {
+        try
+        {
+            var call = System.Linq.Expressions.Expression.Call(getter);
+            var body = System.Linq.Expressions.Expression.Convert(call, typeof(object));
+            return System.Linq.Expressions.Expression.Lambda<Func<object?>>(body).Compile();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static Action<object>? CompileInstanceVoidMethodAsObjectAction(MethodInfo mi)
+    {
+        try
+        {
+            var inst = System.Linq.Expressions.Expression.Parameter(typeof(object), "inst");
+            var cast = System.Linq.Expressions.Expression.Convert(inst, mi.DeclaringType!);
+            var call = System.Linq.Expressions.Expression.Call(cast, mi);
+            return System.Linq.Expressions.Expression.Lambda<Action<object>>(call, inst).Compile();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void FocusAfterPlayed()
+    {
+        if (FocusDefaultControl != null)
+        {
+            FocusDefaultControl();
+            return;
+        }
+
+        NCombatRoom.Instance?.Ui.Hand.TryGrabFocus();
     }
 }
 
@@ -219,7 +282,15 @@ internal static class NControllerCardPlaySingleTargetingAnyPlayerPatch
     private static async Task AnyPlayerControllerTargeting(NControllerCardPlay instance)
     {
         var card = instance.Card;
-        if (card?.CombatState == null)
+        if (card == null)
+        {
+            instance.CancelPlayCard();
+            return;
+        }
+
+        var combatState = BetaMainCompatibility.CardModel_.WrappedCombatState(card)
+                         ?? BetaMainCompatibility.Creature_.WrappedCombatState(card.Owner.Creature);
+        if (combatState == null)
         {
             instance.CancelPlayCard();
             return;
@@ -234,7 +305,7 @@ internal static class NControllerCardPlaySingleTargetingAnyPlayerPatch
 
         var targetManager = NTargetManager.Instance;
 
-        var list = card.CombatState!.PlayerCreatures
+        var list = combatState.PlayerCreatures
             .Where(c => c is { IsAlive: true, IsPlayer: true })
             .ToList();
 
@@ -302,10 +373,11 @@ internal static class CardCmdAutoPlayAnyPlayerPatch
     [HarmonyPrefix]
     private static void RandomAnyPlayer(CardModel card, ref Creature? target)
     {
-        if (card.TargetType != TargetType.AnyPlayer || target != null)
+        if (!IsAnyPlayerMultiplayer(card) || target != null)
             return;
 
-        var combatState = card.CombatState ?? card.Owner.Creature.CombatState;
+        var combatState = BetaMainCompatibility.CardModel_.WrappedCombatState(card)
+                         ?? BetaMainCompatibility.Creature_.WrappedCombatState(card.Owner.Creature);
         if (combatState == null)
             return;
 
