@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using BaseLib.Abstracts;
 using BaseLib.Config;
 using BaseLib.Extensions;
 using BaseLib.Patches.Content;
@@ -51,6 +52,7 @@ public static class BaseLibMain
         ModConfigRegistry.Register(ModId, new BaseLibConfig());
 
         TheBigPatchToCardPileCmdAdd.Patch(MainHarmony);
+        CustomBadgesPatch.Patch(MainHarmony);
 
         MainHarmony.TryPatchAll(assembly);
     }

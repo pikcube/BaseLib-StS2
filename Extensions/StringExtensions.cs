@@ -73,4 +73,14 @@ public static class StringExtensions
         }
         return hash;
     }
+    
+    public static Type? TryGetType(this string typeName)
+    {
+        try
+        {
+            return Type.GetType($"{typeName}, sts2");
+        }
+        catch (Exception) { }
+        return null;
+    }
 }

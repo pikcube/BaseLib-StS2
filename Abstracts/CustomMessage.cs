@@ -63,7 +63,7 @@ public sealed class CustomMessageWrapper : INetMessage
     
     private static void HandleCustomMessage(CustomMessageWrapper message, ulong senderId)
     {
-        message.Message.HandleMessage();
+        message.Message.HandleMessage(senderId);
     }
     
     public int MessageType => CustomMessageToId[Message.GetType()];
@@ -83,6 +83,7 @@ public sealed class CustomMessageWrapper : INetMessage
     }
 
     public bool ShouldBroadcast => Message.ShouldBroadcast;
+    public bool ShouldBuffer => Message.ShouldBuffer;
     public NetTransferMode Mode => Message.Mode;
     public LogLevel LogLevel => Message.LogLevel;
     
@@ -107,12 +108,20 @@ public interface ICustomMessage : IPacketSerializable
     /// <see cref="TaskHelper.RunSafely"/>. Otherwise, it depends. Look at the various Synchronizer classes
     /// to see how they handle messages.
     /// </summary>
-    void HandleMessage();
+    /// <param name="senderId"></param>
+    void HandleMessage(ulong senderId);
     
     /// <summary>
     /// A message that when sent to host, will be passed on to other players.
     /// </summary>
     bool ShouldBroadcast { get; }
+
+    /// <summary>
+    /// Whether message should be buffered when received (temporarily delays processing), if buffering is enabled.
+    /// Basegame only enables buffering during the run start process.
+    /// Basically all gameplay messages should have this set to true.
+    /// </summary>
+    bool ShouldBuffer => true;
 
     /// <summary>
     /// Method of message transfer.

@@ -1,4 +1,7 @@
-﻿using BaseLib.Patches.Localization;
+﻿using System.Reflection;
+using BaseLib.Extensions;
+using BaseLib.Patches.Localization;
+using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Creatures;
@@ -31,7 +34,67 @@ public abstract class CustomTemporaryPowerModel : CustomPowerModel, ITemporaryPo
     public override PowerType Type => InternallyAppliedPower.Type;
     public override PowerStackType StackType => PowerStackType.Counter;
     public override bool AllowNegative => true;
-    public override bool IsInstanced => LastForXExtraTurns != 0;
+    
+    //public override bool IsInstanced => LastForXExtraTurns != 0; //changed to PowerInstanceType
+
+    //This will not work on main branch; swap to a patch of base method :(
+    //Property of main branch has default value, so missing override won't be an issue.
+    [HarmonyPatch]
+    class OldTemporaryPowerInstancedPatch
+    {
+        static MethodInfo? TargetMethod = AccessTools.PropertyGetter(typeof(PowerModel), "IsInstanced");
+        
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            if (TargetMethod != null) yield return TargetMethod;
+        }
+
+        static bool Prepare()
+        {
+            return TargetMethod != null;
+        }
+        
+        [HarmonyPrefix]
+        static bool MaybeInstanced(PowerModel __instance, ref bool? __result)
+        {
+            if (__instance is not CustomTemporaryPowerModel tempPower) return true;
+
+            __result = tempPower.LastForXExtraTurns != 0;
+            return false;
+        }
+    }
+    [HarmonyPatch]
+    class NewTemporaryPowerInstancedPatch
+    {
+        private static MethodInfo? GetInstanceType = AccessTools.PropertyGetter(typeof(PowerModel), "InstanceType");
+        private static Type? InstanceTypeEnum = "MegaCrit.Sts2.Core.Entities.Powers.PowerInstanceType".TryGetType();
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            if (GetInstanceType != null) yield return GetInstanceType;
+        }
+
+        static bool Prepare()
+        {
+            return GetInstanceType != null;
+        }
+        
+        [HarmonyPrefix]
+        static bool MaybeInstanced(PowerModel __instance, ref object? __result)
+        {
+            if (__instance is not CustomTemporaryPowerModel tempPower) return true;
+
+            if (InstanceTypeEnum == null)
+                throw new InvalidOperationException("Could not get PowerInstanceType enum type");
+
+            if (tempPower.LastForXExtraTurns == 0) return true;
+
+            __result = InstanceTypeEnum.GetEnumValues().GetValue(1);
+            return false;
+        }
+    }
+    /*public override PowerInstanceType InstanceType =>
+        LastForXExtraTurns != 0 ? PowerInstanceType.Instanced : PowerInstanceType.None;*/
+    
     protected virtual bool InvertInternalPowerAmount => false;
     
     // The whole IgnoreNextInstance thing ONLY exists because of the Misery card

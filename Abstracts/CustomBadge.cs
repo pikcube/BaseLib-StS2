@@ -34,13 +34,13 @@ public abstract class CustomBadge(bool requiresWin, bool multiplayerOnly)// : Ba
     public abstract BadgeRarity Rarity(SerializableRun run, SerializablePlayer player);
     public abstract bool IsObtained(SerializableRun run, SerializablePlayer player);
 
-    public Badge ToRealBadge(SerializableRun run, ulong playerId)
+    public Badge ToRealBadge(SerializableRun run, bool won, ulong playerId)
     {
         //AAAHHHHHHH
         Badge result;
         if (MainBranchBadgeConstructor == null)
         {
-            result = GeneratedNewBadge(this, run, playerId);
+            result = GeneratedNewBadge(this, run, won, playerId);
         }
         else
         {
@@ -159,7 +159,7 @@ public abstract class CustomBadge(bool requiresWin, bool multiplayerOnly)// : Ba
         }
         return (Badge)Activator.CreateInstance(generatedType, run, playerId, baseBadge)!;
     }
-    private static Badge GeneratedNewBadge(CustomBadge baseBadge, SerializableRun run, ulong playerId)
+    private static Badge GeneratedNewBadge(CustomBadge baseBadge, SerializableRun run, bool won, ulong playerId)
     {
         if (!GeneratedBadges.TryGetValue(baseBadge.GetType(), out var generatedType))
         {
@@ -174,17 +174,18 @@ public abstract class CustomBadge(bool requiresWin, bool multiplayerOnly)// : Ba
                 typeof(DynamicBadge));
 
             var baseConstructor =
-                typeof(DynamicBadge).GetConstructor([typeof(CustomBadge), typeof(SerializableRun), typeof(ulong)]);
+                typeof(DynamicBadge).GetConstructor([typeof(CustomBadge), typeof(SerializableRun), typeof(bool), typeof(ulong)]);
 
             var ctrBuilder = tb.DefineConstructor(MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, 
                 CallingConventions.Standard | CallingConventions.HasThis,
-                [typeof(SerializableRun), typeof(ulong), typeof(CustomBadge)]);
+                [typeof(SerializableRun), typeof(bool), typeof(ulong), typeof(CustomBadge)]);
 
             ILGenerator generator = ctrBuilder.GetILGenerator();
             generator.Emit(OpCodes.Ldarg_0);
-            generator.Emit(OpCodes.Ldarg_3);
+            generator.Emit(OpCodes.Ldarg_S, 4);
             generator.Emit(OpCodes.Ldarg_1);
             generator.Emit(OpCodes.Ldarg_2);
+            generator.Emit(OpCodes.Ldarg_3);
             generator.Emit(OpCodes.Call, baseConstructor!);
             generator.Emit(OpCodes.Ret);
             
@@ -192,7 +193,7 @@ public abstract class CustomBadge(bool requiresWin, bool multiplayerOnly)// : Ba
             GeneratedBadges[baseBadge.GetType()] = generatedType;
             BaseLibMain.Logger.Info($"Generated beta branch badge type for {baseBadge.Id}");
         }
-        return (Badge)Activator.CreateInstance(generatedType, run, playerId, baseBadge)!;
+        return (Badge)Activator.CreateInstance(generatedType, run, won, playerId, baseBadge)!;
     }
 }
 
@@ -203,7 +204,7 @@ public abstract class DynamicBadge : Badge
 {
     private readonly CustomBadge _baseBadge;
 
-    public DynamicBadge(CustomBadge baseBadge, SerializableRun run, ulong playerId) : base(run, playerId, baseBadge.Id, baseBadge.RequiresWin, baseBadge.MultiplayerOnly)
+    public DynamicBadge(CustomBadge baseBadge, SerializableRun run, bool won, ulong playerId) : base(run, won, playerId, baseBadge.Id, baseBadge.RequiresWin, baseBadge.MultiplayerOnly)
     {
         _baseBadge = baseBadge;
     }
@@ -216,17 +217,40 @@ public abstract class DynamicBadge : Badge
     public override BadgeRarity Rarity => _baseBadge.Rarity(_run, _localPlayer);
 }
 
-[HarmonyPatch(typeof(BadgePool), nameof(BadgePool.CreateAll))]
-class CustomBadgesPatch
+internal class CustomBadgesPatch
 {
-    [HarmonyPostfix]
-    static IReadOnlyCollection<Badge> AddCustomBadges(IReadOnlyCollection<Badge> __result, SerializableRun run, ulong playerId)
+    public static void Patch(Harmony harmony)
+    {
+        var target = typeof(BadgePool).Method(nameof(BadgePool.CreateAll));
+
+        if (target.GetParameters().Length == 3) //beta version
+        {
+            harmony.Patch(target, postfix: typeof(CustomBadgesPatch).Method(nameof(AddCustomBadgesNew)));
+        }
+        else
+        {
+            harmony.Patch(target, postfix: typeof(CustomBadgesPatch).Method(nameof(AddCustomBadgesOld)));
+        }
+    }
+    
+    static IReadOnlyCollection<Badge> AddCustomBadgesNew(IReadOnlyCollection<Badge> __result, SerializableRun run, bool won, ulong playerId)
     {
         var list = __result.ToList();
         foreach (var type in CustomContentDictionary.CustomBadgeTypes)
         {
             var customBadge = (CustomBadge)Activator.CreateInstance(type)!;
-            list.Add(customBadge.ToRealBadge(run, playerId));
+            list.Add(customBadge.ToRealBadge(run, won, playerId));
+        }
+        
+        return list;
+    }
+    static IReadOnlyCollection<Badge> AddCustomBadgesOld(IReadOnlyCollection<Badge> __result, SerializableRun run, ulong playerId)
+    {
+        var list = __result.ToList();
+        foreach (var type in CustomContentDictionary.CustomBadgeTypes)
+        {
+            var customBadge = (CustomBadge)Activator.CreateInstance(type)!;
+            list.Add(customBadge.ToRealBadge(run, true, playerId));
         }
         
         return list;

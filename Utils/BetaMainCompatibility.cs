@@ -80,6 +80,20 @@ public class BetaMainCompatibility
             return new CombatStateWrapper(state);
         }
 
+        private static MethodInfo? OldInfiniteHp = typeof(Creature).PropertyGetter("ShowsInfiniteHp");
+        private static MethodInfo? NewInfiniteHp = typeof(Creature).PropertyGetter(nameof(Creature.HpDisplay));
+        public static bool ShowsInfiniteHp(Creature creature)
+        {
+            if (OldInfiniteHp != null) return (bool) (OldInfiniteHp.Invoke(creature, []) ?? throw new InvalidOperationException());
+            if (NewInfiniteHp != null)
+            {
+                var hpDisplayEnumVal = NewInfiniteHp.Invoke(creature, []);
+                return Convert.ToInt32(hpDisplayEnumVal) is 1 or 2;
+            }
+
+            throw new InvalidOperationException("Could not find property for infinite hp check");
+        }
+
         public static VariableReference<object?> CombatState = new(typeof(Creature), "CombatState");
     }
 
@@ -230,7 +244,7 @@ public class VariableMethod
     }
 
     public VariableMethod(params (string, string, Type?[], int[])[] possibleDefinitions) : this(possibleDefinitions.Select(def 
-        => (TryGetType(def.Item1), def.Item2, def.Item3, def.Item4)).ToArray())
+        => (def.Item1.TryGetType(), def.Item2, def.Item3, def.Item4)).ToArray())
     {
     }
     public VariableMethod(params (Type?, string, Type?[], int[])[] possibleDefinitions)
@@ -251,16 +265,6 @@ public class VariableMethod
         if (_method == null)
             throw new Exception($"Failed to get VariableMethod {possibleDefinitions.Join(
                 def => $"[{def.Item1?.Name ?? "UNKNOWN"}.{def.Item2}({def.Item3.Join(paramType => paramType?.Name ?? "ANY")})]")}");
-    }
-
-    private static Type? TryGetType(string typeName)
-    {
-        try
-        {
-            return Type.GetType($"{typeName}, sts2");
-        }
-        catch (Exception) { }
-        return null;
     }
 }
 

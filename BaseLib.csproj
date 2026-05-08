@@ -20,9 +20,9 @@
         <PackageId>Alchyr.Sts2.BaseLib</PackageId>
         <Title>BaseLib-StS2</Title>
         <Description>Mod for Slay the Spire 2 providing utilities and features for other mods.</Description>
-        <Version>3.1.1</Version>
+        <Version>3.1.2</Version>
         <Authors>Alchyr</Authors>
-        <PackageReleaseNotes>ModAudio, char selection scroll, CustomReward, custom messages (networking), ITomeCard, any-player targeting patch, other fixes</PackageReleaseNotes>
+        <PackageReleaseNotes>Beta branch compatibility, fix AnyPlayer target patch (for main branch), add scrolling to Custom Run character select</PackageReleaseNotes>
         <PackageTags>c#</PackageTags>
         <NoWarn>$(NoWarn);NU5128;MSB3270</NoWarn>
 

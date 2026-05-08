@@ -8,10 +8,10 @@ namespace BaseLib.Utils;
 
 public class CustomBackgroundAssets : BackgroundAssets
 {
-    private static readonly MethodInfo BackgroundScenePathSetter =
-        AccessTools.PropertySetter(typeof(BackgroundAssets), nameof(BackgroundScenePath));
-    private static readonly MethodInfo FgLayerSetter =
-        AccessTools.PropertySetter(typeof(BackgroundAssets), nameof(FgLayer));
+    private static readonly Action<BackgroundAssets, string> BackgroundScenePathSetter =
+        ReflectionUtils.GetSetterForProperty<BackgroundAssets, string>(nameof(BackgroundScenePath));
+    private static readonly Action<BackgroundAssets, string?> FgLayerSetter =
+        ReflectionUtils.GetSetterForProperty<BackgroundAssets, string?>(nameof(FgLayer));
 
     private const string FakeKey = "glory";
     
@@ -27,8 +27,12 @@ public class CustomBackgroundAssets : BackgroundAssets
     /// _fg_ scenes can be named in any way.  _bg_ assets should be split into
     /// numbered layers such as myact_bg_00_a.tscn, myact_bg_01_a.tscn, myact_bg_01_b.tscn
     /// being two numbered sets, 00 and 01.
-    /// A single random foreground scene will be chosen, and a random asset from each numbered layer will be chosen from
+    /// A single random foreground scene will be chosen, and a random asset from each numbered layer will be cho sen from
     /// the background scenes.
+    /// These scenes are generally about 2900x1350, with a centered anchor.
+    /// size (2881.54x1350.72), position (-480.77, -135.36), root TextureRect expand mode IgnoreSize Anchors preset Center.
+    /// Size is not "fixed". Can be wider.
+    /// Actual texture of texturerect is usually 2048x960.
     /// </param>
     /// <param name="bgScenePath">.tscn file that will be a constant background.</param>
     /// <param name="rng">The rng passed to a method where this is called. In ActModel, GenerateBackgroundAssets.</param>
@@ -57,9 +61,9 @@ public class CustomBackgroundAssets : BackgroundAssets
             }
         }
         
-        BackgroundScenePathSetter.Invoke(this, [bgScenePath]);
+        BackgroundScenePathSetter.Invoke(this, bgScenePath);
         BgLayers.AddRange(SelectRandomBackgroundAssetLayers(rng, bgLayers));
-        FgLayerSetter.Invoke(this, [SelectRandomForegroundAssetLayer(rng, stringList)]);
+        FgLayerSetter.Invoke(this, SelectRandomForegroundAssetLayer(rng, stringList));
     }
     
     /// <summary>
@@ -71,9 +75,9 @@ public class CustomBackgroundAssets : BackgroundAssets
     /// <param name="foregroundLayer"></param>
     public CustomBackgroundAssets(string backgroundScenePath, List<string> backgroundLayers, string foregroundLayer) : this()
     {
-        BackgroundScenePathSetter.Invoke(this, [backgroundScenePath]);
+        BackgroundScenePathSetter.Invoke(this, backgroundScenePath);
         BgLayers.AddRange(backgroundLayers);
-        FgLayerSetter.Invoke(this, [foregroundLayer]);
+        FgLayerSetter.Invoke(this, foregroundLayer);
     }
     
     /// <summary>
@@ -85,8 +89,8 @@ public class CustomBackgroundAssets : BackgroundAssets
     /// <param name="foregroundLayer">One random .tscn will be used for the foreground layer.</param>
     public CustomBackgroundAssets(string backgroundScenePath, IEnumerable<IEnumerable<string>> backgroundLayers, IEnumerable<string> foregroundLayers, Rng rng) : this()
     {
-        BackgroundScenePathSetter.Invoke(this, [backgroundScenePath]);
+        BackgroundScenePathSetter.Invoke(this, backgroundScenePath);
         BgLayers.AddRange(backgroundLayers.Select(layer => rng.NextItem(layer)!).ToList());
-        FgLayerSetter.Invoke(this, [SelectRandomForegroundAssetLayer(rng, foregroundLayers)]);
+        FgLayerSetter.Invoke(this, SelectRandomForegroundAssetLayer(rng, foregroundLayers));
     }
 }
