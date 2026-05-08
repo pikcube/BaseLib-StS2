@@ -87,8 +87,8 @@ public class BetaMainCompatibility
             if (OldInfiniteHp != null) return (bool) (OldInfiniteHp.Invoke(creature, []) ?? throw new InvalidOperationException());
             if (NewInfiniteHp != null)
             {
-                int hpDisplayEnumVal = (int?) NewInfiniteHp.Invoke(creature, []) ?? 0;
-                return hpDisplayEnumVal is 1 or 2;
+                var hpDisplayEnumVal = NewInfiniteHp.Invoke(creature, []);
+                return Convert.ToInt32(hpDisplayEnumVal) is 1 or 2;
             }
 
             throw new InvalidOperationException("Could not find property for infinite hp check");
