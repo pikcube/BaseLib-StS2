@@ -83,6 +83,7 @@ public sealed class CustomMessageWrapper : INetMessage
     }
 
     public bool ShouldBroadcast => Message.ShouldBroadcast;
+    public bool ShouldBuffer => Message.ShouldBuffer;
     public NetTransferMode Mode => Message.Mode;
     public LogLevel LogLevel => Message.LogLevel;
     
@@ -114,6 +115,13 @@ public interface ICustomMessage : IPacketSerializable
     /// A message that when sent to host, will be passed on to other players.
     /// </summary>
     bool ShouldBroadcast { get; }
+
+    /// <summary>
+    /// Whether message should be buffered when received (temporarily delays processing), if buffering is enabled.
+    /// Basegame only enables buffering during the run start process.
+    /// Basically all gameplay messages should have this set to true.
+    /// </summary>
+    bool ShouldBuffer => true;
 
     /// <summary>
     /// Method of message transfer.
