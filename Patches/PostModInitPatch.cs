@@ -10,6 +10,8 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Saves.Runs;
+using SmartFormat;
+using SmartFormat.Core.Extensions;
 
 namespace BaseLib.Patches;
 
@@ -52,6 +54,18 @@ class PostModInitPatch
         foreach (var type in ReflectionHelper.ModTypes)
         {
             interop.ProcessType(harmony, type);
+
+            if (type.IsAssignableTo(typeof(IAutoRegisterFormatSpecifier)))
+            {
+                try
+                {
+                    Smart.Default.AddExtensions((IFormatter) type.CreateInstance());
+                }
+                catch (Exception e)
+                {
+                    BaseLibMain.Logger.Error($"Exception occurred adding format specifier {type}; {e}");
+                }
+            }
 
             bool hasSavedProperty = false;
             foreach (var prop in type.GetProperties())
