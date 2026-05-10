@@ -1,15 +1,7 @@
 using BaseLib.Abstracts;
 using BaseLib.Utils;
-using BaseLib.Extensions;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Multiplayer.Game;
-using MegaCrit.Sts2.Core.Models;
-using MegaCrit.Sts2.Core.CardSelection;
-using MegaCrit.Sts2.Core.Combat;
-using MegaCrit.Sts2.Core.Commands;
-using MegaCrit.Sts2.Core.Entities.Players;
-using MegaCrit.Sts2.Core.Factories;
-using MegaCrit.Sts2.Core.Nodes.CommonUi;
 
 namespace BaseLib.Patches.Content;
 
@@ -60,61 +52,6 @@ public static class RewardSynchronizerExtensions
         BufferedCustomRewardMessages[rewardSynchronizer]!.Add(bufferedMessage);
     }
 
-    /// <summary>
-    /// Method to handle transforming a card as a combat reward
-    /// </summary>
-    public static async Task<bool> DoLocalCardTransform(this RewardSynchronizer rewardSynchronizer, int amount = 1, bool upgrade = false)
-    {
-        CardTransformRewardMessage message = new CardTransformRewardMessage
-        {
-            Location = rewardSynchronizer._messageBuffer.CurrentLocation,
-            wasSkipped = false,
-            Upgrade = upgrade,
-            Amount = amount
-        };
-        BaseLibMain.Logger.Debug($"Transforming card for local player {rewardSynchronizer.LocalPlayer}");
-
-        rewardSynchronizer.GameService().SendMessage(message);
-        return await rewardSynchronizer.DoCardTransform(rewardSynchronizer.LocalPlayer, amount, upgrade);
-    }
-
-    /// <summary>
-    /// Transform a card for a specific player as a combat reward
-    /// </summary>
-    public static async Task<bool> DoCardTransform(this RewardSynchronizer rewardSynchronizer, Player player, int amount = 1, bool upgrade = false)
-    {
-        CardSelectorPrefs prefs = new CardSelectorPrefs(
-                upgrade
-                    ? CardSelectorPrefsExtensions.TransformAndUpgradeSelectionPrompt
-                    : CardSelectorPrefs.TransformSelectionPrompt,
-                1,
-                amount)
-        {
-            Cancelable = true,
-            RequireManualConfirmation = true
-        };
-
-        List<CardModel> cards = (await CardSelectCmd.FromDeckForTransformation(player, prefs)).ToList();
-
-        BaseLibMain.Logger.Debug($"Current combat state for transform rewards is: IsEnding={CombatManager.Instance.IsEnding}");
-        foreach (CardModel card in cards)
-        {
-            CardModel newCard = CardFactory.CreateRandomCardForTransform(
-                    card,
-                    isInCombat: false,
-                    player.RunState.Rng.Niche);
-
-            if (upgrade || card.IsUpgraded) // need a more robust handler for multi-upgrade at some point
-            {
-                CardCmd.Upgrade(newCard);
-            }
-
-            await CardCmd.Transform(card, newCard, CardPreviewStyle.GridLayout);
-            BaseLibMain.Logger.Debug($"Player {player.NetId} transformed {card.Id} in their deck into {newCard.Id}" + (upgrade ? " and upgraded it." : "."));
-        }
-
-        return cards.Count > 0;
-    }
 
     [HarmonyPatch(nameof(RewardSynchronizer.OnCombatEnded))]
     [HarmonyPrefix]
