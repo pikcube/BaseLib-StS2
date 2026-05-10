@@ -55,11 +55,13 @@ class PostModInitPatch
         {
             interop.ProcessType(harmony, type);
 
-            if (type.IsAssignableTo(typeof(IAutoRegisterFormatSpecifier)))
+            if (type.IsAssignableTo(typeof(IAutoRegisterFormatSpecifier)) && 
+                type is { IsAbstract: false, IsInterface: false })
             {
                 try
                 {
                     Smart.Default.AddExtensions((IFormatter) type.CreateInstance());
+                    BaseLibMain.Logger.Info($"Added custom format specifier {type.Name}");
                 }
                 catch (Exception e)
                 {
