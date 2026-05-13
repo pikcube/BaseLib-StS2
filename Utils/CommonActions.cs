@@ -1,3 +1,4 @@
+using Baselib.Abstracts;
 using BaseLib.Extensions;
 using MegaCrit.Sts2.Core.CardSelection;
 using MegaCrit.Sts2.Core.Commands;
@@ -69,27 +70,46 @@ public static class CommonActions
     public static AttackCommand CardAttack(CardModel card, Creature? target, decimal damage, int hitCount = 1, string? vfx = null, string? sfx = null, string? tmpSfx = null)
     {
         AttackCommand cmd = DamageCmd.Attack(damage).WithHitCount(hitCount).FromCard(card);
-        
-        switch (card.TargetType)
-        {
-            case TargetType.AnyEnemy:
-                if (target == null) return cmd;
-                cmd.Targeting(target);
-                break;
-            case TargetType.AllEnemies:
-                var combatStateA = BetaMainCompatibility.CardModel_.CombatState.Get(card);
-                if (combatStateA == null) return cmd;
-                BetaMainCompatibility.AttackCommand_.TargetingAllOpponents.Invoke(cmd, combatStateA);
-                break;
-            case TargetType.RandomEnemy:
-                var combatStateB = BetaMainCompatibility.CardModel_.CombatState.Get(card);
-                if (combatStateB == null) return cmd;
-                BetaMainCompatibility.AttackCommand_.TargetingRandomOpponents.Invoke(cmd, combatStateB, true);
-                break;
-            default:
-                throw new Exception($"Unsupported AttackCommand target type {card.TargetType} for card {card.Title}");
-        }
 
+
+        if (CustomTargetType.IsCustomSingleTargetType(card.TargetType))
+        {
+            if (target == null) return cmd;
+            cmd.Targeting(target);
+        }
+        else if (CustomTargetType.IsCustomMultiTargetType(card.TargetType))
+        {
+            var state = card.CombatState;
+            if (state == null) return cmd;
+            var targets = state.Creatures.Where(c =>  CustomTargetType.CanMulitTarget(card.TargetType, c));
+            cmd.TargetingFiltered(targets);
+        }
+        else
+        {
+            switch (card.TargetType)
+            {
+                case TargetType.AnyEnemy:
+                    if (target == null) return cmd;
+                    cmd.Targeting(target);
+                    break;
+                case TargetType.AllEnemies:
+                    var combatStateA = BetaMainCompatibility.CardModel_.CombatState.Get(card);
+                    if (combatStateA == null) return cmd;
+                    BetaMainCompatibility.AttackCommand_.TargetingAllOpponents.Invoke(cmd, combatStateA);
+                    break;
+                case TargetType.RandomEnemy:
+                    var combatStateB = BetaMainCompatibility.CardModel_.CombatState.Get(card);
+                    if (combatStateB == null) return cmd;
+                    BetaMainCompatibility.AttackCommand_.TargetingRandomOpponents.Invoke(cmd, combatStateB, true);
+                    break;
+                default:
+                    throw new Exception($"Unsupported AttackCommand target type {card.TargetType} for card {card.Title}");
+            }
+
+        }
+      
+     
+        
         if (vfx != null || sfx != null || tmpSfx != null) cmd.WithHitFx(vfx: vfx, sfx: sfx, tmpSfx: tmpSfx);
 
         return cmd;
@@ -110,24 +130,40 @@ public static class CommonActions
     {
         AttackCommand cmd = DamageCmd.Attack(calculatedDamage).WithHitCount(hitCount).FromCard(card);
         
-        switch (card.TargetType)
+        if (CustomTargetType.IsCustomSingleTargetType(card.TargetType))
         {
-            case TargetType.AnyEnemy:
-                if (target == null) return cmd;
-                cmd.Targeting(target);
-                break;
-            case TargetType.AllEnemies:
-                var combatStateA = BetaMainCompatibility.CardModel_.CombatState.Get(card);
-                if (combatStateA == null) return cmd;
-                BetaMainCompatibility.AttackCommand_.TargetingAllOpponents.Invoke(cmd, combatStateA);
-                break;
-            case TargetType.RandomEnemy:
-                var combatStateB = BetaMainCompatibility.CardModel_.CombatState.Get(card);
-                if (combatStateB == null) return cmd;
-                BetaMainCompatibility.AttackCommand_.TargetingRandomOpponents.Invoke(cmd, combatStateB, true);
-                break;
-            default:
-                throw new Exception($"Unsupported AttackCommand target type {card.TargetType} for card {card.Title}");
+            if (target == null) return cmd;
+            cmd.Targeting(target);
+        }
+        else if (CustomTargetType.IsCustomMultiTargetType(card.TargetType))
+        {
+            var state = card.CombatState;
+            if (state == null) return cmd;
+            var targets = state.Creatures.Where(c =>  CustomTargetType.CanMulitTarget(card.TargetType, c));
+            cmd.TargetingFiltered(targets);
+        }
+        else
+        {
+            switch (card.TargetType)
+            {
+                case TargetType.AnyEnemy:
+                    if (target == null) return cmd;
+                    cmd.Targeting(target);
+                    break;
+                case TargetType.AllEnemies:
+                    var combatStateA = BetaMainCompatibility.CardModel_.CombatState.Get(card);
+                    if (combatStateA == null) return cmd;
+                    BetaMainCompatibility.AttackCommand_.TargetingAllOpponents.Invoke(cmd, combatStateA);
+                    break;
+                case TargetType.RandomEnemy:
+                    var combatStateB = BetaMainCompatibility.CardModel_.CombatState.Get(card);
+                    if (combatStateB == null) return cmd;
+                    BetaMainCompatibility.AttackCommand_.TargetingRandomOpponents.Invoke(cmd, combatStateB, true);
+                    break;
+                default:
+                    throw new Exception(
+                        $"Unsupported AttackCommand target type {card.TargetType} for card {card.Title}");
+            }
         }
 
         if (vfx != null || sfx != null || tmpSfx != null) cmd.WithHitFx(vfx: vfx, sfx: sfx, tmpSfx: tmpSfx);
