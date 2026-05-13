@@ -177,18 +177,6 @@ internal static class ModelDbTargetTypeInitPatch
     }
 }
 
-
-[HarmonyPatch(typeof(AttackCommand), "Execute")]
-internal class AttackCommandExecutePatch
-{
-    public static bool Prefix(AttackCommand __instance, ref Task<AttackCommand> __result)
-    {
-        if (__instance.IsSingleTargeted || __instance.IsMultiTargeted) return true;
-        __result = Task.FromResult(__instance);
-        return false;
-    }
-}
-
 /// <summary>
 /// Triggers the multi-select visual state for any <see cref="TargetType"/> registered
 /// in <see cref="CustomTargetType.MultiTargeting"/>, displaying targeting reticles over
@@ -254,15 +242,9 @@ public static class AttackCommandExtensions
     public static AttackCommand TargetingFiltered(this AttackCommand cmd, IEnumerable<Creature> targets)
     {
         var list = targets.ToList();
-        if (list.Count == 0) return cmd;
-
         AttackCommandGetPossibleTargetsPatch.CustomTargets.Add(
             cmd, new StrongBox<IReadOnlyList<Creature>>(list));
-
-        // IsSingleTargeted / IsMultiTargeted both stay false — we need IsMultiTargeted true
-        // so Execute doesn't throw. Setting _combatState via the first creature's state is
-        // safe because GetPossibleTargets is fully replaced above.
-        cmd._combatState = list[0].CombatState;
+        cmd._combatState = cmd.Attacker?.CombatState;
         return cmd;
     }
 }
