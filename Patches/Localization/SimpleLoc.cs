@@ -39,13 +39,20 @@ public static partial class SimpleLoc
         foreach (var key in __result.Keys.ToList())
         {
             var processed = __result[key];
-            if (processed.StartsWith('#'))
+            if (modUseSimpleLoc)
+            {
+                if (processed.StartsWith('#'))
+                {
+                    __result[key] = processed[1..];
+                }
+                else
+                {
+                    __result[key] = Simplify(processed);
+                }
+            }
+            else if (processed.StartsWith('#'))
             {
                 __result[key] = Simplify(processed[1..]);
-            }
-            else if (modUseSimpleLoc)
-            {
-                __result[key] = Simplify(processed);
             }
         }
     }
