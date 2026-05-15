@@ -1,14 +1,19 @@
-﻿namespace BaseLib.Abstracts;
+﻿using BaseLib.Patches.Localization;
+
+namespace BaseLib.Abstracts;
 
 //TODO - Add additional information to each class on anything that should be noted when writing its localization.
 
 /// <summary>
+/// <a href="https://alchyr.github.io/BaseLib-Wiki/docs/localization/code-loc.html">BaseLib Wiki - In-Code Localization</a>
 /// <para>A model that implements this interface can define localization that will be added to its relevant localization table.
 /// Recommended implementation is to return one of the provided Loc classes such as CardLoc.
 /// To support translation, a switch statement like this is recommended:</para>
-/// => LocManager.Instance.Language switch
+/// <code>
+/// Localization => LocManager.Instance.Language switch
 /// { "aaa" => new CardLoc("translated"), _ => new CardLoc("default") };
-/// <seealso cref="BaseLib.Patches.Utils.ModelLocPatch"/>
+/// </code>
+/// <seealso cref="ModelLocPatch"/>
 /// </summary>
 public interface ILocalizationProvider
 {
