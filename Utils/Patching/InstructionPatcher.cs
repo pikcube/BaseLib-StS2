@@ -394,7 +394,7 @@ public class InstructionPatcher(IEnumerable<CodeInstruction> instructions)
     {
         if (_index < 0) throw new Exception("Attempted to CopyMatch without any match found");
 
-        match = _code.GetRange(_lastMatchStart, _index - _lastMatchStart);
+        match = _code.GetRange(_lastMatchStart, _index - _lastMatchStart).Select(instruction => instruction.Clone()).ToList();
         
         Log.Add($"Copied {match.Count} instructions:\n");
         foreach (var instruction in match)

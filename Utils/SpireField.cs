@@ -47,6 +47,30 @@ public class SpireField<TKey, TVal> where TKey : class
     }
 }
 
+public class ReadonlySpireField<TKey, TVal> : SpireField<TKey, TVal> where TKey : class
+{
+    /// <inheritdoc />
+    public ReadonlySpireField(Func<TVal?> defaultVal) : base(defaultVal)
+    {
+        
+    }
+
+    /// <inheritdoc />
+    public ReadonlySpireField(Func<TKey, TVal?> defaultVal) : base(defaultVal)
+    {
+        
+    }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    [Obsolete("ReadonlySpireField cannot be set; exception will be thrown.")]
+    public new void Set(TKey obj, TVal? val)
+    {
+        throw new InvalidOperationException("The value of an AddedNode should not be set. Instead, modify the node already within the scene.");
+    }
+}
+
 internal interface IAddedNodes<TParentType> where TParentType : Node
 {
     protected static List<IAddedNodes<TParentType>> _addedNodes = [];
@@ -105,7 +129,7 @@ internal interface IAddedNodes<TParentType> where TParentType : Node
 /// <summary>
 /// Adds a node as a child to all instances of the specified parent node type.
 /// </summary>
-public class AddedNode<TParentType, TNode> : SpireField<TParentType, TNode>, IAddedNodes<TParentType> where TParentType : Node where TNode : Node
+public class AddedNode<TParentType, TNode> : ReadonlySpireField<TParentType, TNode>, IAddedNodes<TParentType> where TParentType : Node where TNode : Node
 {
     
     public AddedNode(Func<TParentType, TNode> defaultVal) : base(defaultVal)
@@ -128,11 +152,6 @@ public class AddedNode<TParentType, TNode> : SpireField<TParentType, TNode>, IAd
             return scene;
         })
     { }
-    
-    public new void Set(TParentType obj, TNode? val)
-    {
-        throw new InvalidOperationException("The value of an AddedNode should not be set. Instead, modify the node already within the scene.");
-    }
 
     public Node? GetNode(TParentType obj)
     {

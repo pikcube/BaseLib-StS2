@@ -1,5 +1,5 @@
-using System.Reflection;
 using BaseLib.Utils;
+using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
@@ -70,7 +70,7 @@ static class SavedSpireFieldPatch
             propertyToId[name] = idToProperty.Count;
             idToProperty.Add(name);
 
-            int newBitSize = (int)Math.Ceiling(Math.Log2(idToProperty.Count));
+            int newBitSize = Mathf.CeilToInt(Math.Log2(idToProperty.Count));
 
             AccessTools
                 .Property(typeof(SavedPropertiesTypeCache), "NetIdBitSize")

@@ -161,6 +161,20 @@ public class InstructionMatcher() : IMatcher
         ]));
         return this;
     }
+    public InstructionMatcher ldloc_any()
+    {
+        _target.Add(new InstructionMatch([
+            OpCodes.Ldloc,
+            OpCodes.Ldloc_0,
+            OpCodes.Ldloc_1,
+            OpCodes.Ldloc_2,
+            OpCodes.Ldloc_3,
+            OpCodes.Ldloc_S,
+            OpCodes.Ldloca,
+            OpCodes.Ldloca_S,
+        ]));
+        return this;
+    }
 
     public InstructionMatcher call_any()
     {
