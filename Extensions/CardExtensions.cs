@@ -1,4 +1,5 @@
-﻿using BaseLib.Patches.Content;
+﻿using BaseLib.Abstracts;
+using BaseLib.Patches.Content;
 using BaseLib.Patches.Features;
 using BaseLib.Utils;
 using MegaCrit.Sts2.Core.Entities.Cards;
@@ -47,5 +48,14 @@ public static class CardExtensions
                     $"single targeting or is an unknown type of targeting.");
                 return [];
         }
+    }
+
+    /// <summary>
+    /// Convenience shortcut to <see cref="CardModifier.AddModifier"/>.
+    /// Adds a modifier to a card.
+    /// </summary>
+    public static void AddModifier(this CardModel card, CardModifier modifier)
+    {
+        CardModifier.AddModifier(card, modifier);
     }
 }
