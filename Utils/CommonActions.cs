@@ -5,7 +5,6 @@ using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Commands.Builders;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
-using MegaCrit.Sts2.Core.Extensions;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
@@ -48,14 +47,16 @@ public static class CommonActions
     {
         if (card.DynamicVars.ContainsKey(CalculatedDamageVar.defaultName))
         {
-            return CardAttack(card, target, card.DynamicVars.CalculatedDamage, hitCount, vfx, sfx, tmpSfx);
+            return CardAttack(card, target, card.DynamicVars.CalculatedDamage, hitCount, vfx, sfx, tmpSfx, card.DynamicVars.CalculatedDamage.Props);
         }
-        else if (card.DynamicVars.ContainsKey(DamageVar.defaultName))
+
+        if (card.DynamicVars.ContainsKey(DamageVar.defaultName))
         {
-            return CardAttack(card, target, card.DynamicVars.Damage.BaseValue, hitCount, vfx, sfx, tmpSfx);
+            return CardAttack(card, target, card.DynamicVars.Damage.BaseValue, hitCount, vfx, sfx, tmpSfx, card.DynamicVars.Damage.Props);
         }
         throw new Exception($"Card {card.Title} does not have a damage variable supported by CommonActions.CardAttack");
     }
+
     /// <summary>
     /// Performs an attacking using a specified amount of damage on a target.
     /// </summary>
@@ -66,11 +67,12 @@ public static class CommonActions
     /// <param name="vfx"></param>
     /// <param name="sfx"></param>
     /// <param name="tmpSfx"></param>
+    /// <param name="valueProp"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public static AttackCommand CardAttack(CardModel card, Creature? target, decimal damage, int hitCount = 1, string? vfx = null, string? sfx = null, string? tmpSfx = null)
+    public static AttackCommand CardAttack(CardModel card, Creature? target, decimal damage, int hitCount = 1, string? vfx = null, string? sfx = null, string? tmpSfx = null, ValueProp valueProp = ValueProp.Move)
     {
-        AttackCommand cmd = DamageCmd.Attack(damage).WithHitCount(hitCount).FromCard(card);
+        AttackCommand cmd = DamageCmd.Attack(damage).WithHitCount(hitCount).FromCard(card).WithValueProp(valueProp);
 
 
         if (CustomTargetType.IsCustomSingleTargetType(card.TargetType))
@@ -115,6 +117,7 @@ public static class CommonActions
 
         return cmd;
     }
+
     /// <summary>
     /// Performs an attacking using aCalculatedDamageVar on a target.
     /// </summary>
@@ -125,11 +128,12 @@ public static class CommonActions
     /// <param name="vfx"></param>
     /// <param name="sfx"></param>
     /// <param name="tmpSfx"></param>
+    /// <param name="valueProp"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public static AttackCommand CardAttack(CardModel card, Creature? target, CalculatedDamageVar calculatedDamage, int hitCount = 1, string? vfx = null, string? sfx = null, string? tmpSfx = null)
+    public static AttackCommand CardAttack(CardModel card, Creature? target, CalculatedDamageVar calculatedDamage, int hitCount = 1, string? vfx = null, string? sfx = null, string? tmpSfx = null, ValueProp valueProp = ValueProp.Move)
     {
-        AttackCommand cmd = DamageCmd.Attack(calculatedDamage).WithHitCount(hitCount).FromCard(card);
+        AttackCommand cmd = DamageCmd.Attack(calculatedDamage).WithHitCount(hitCount).FromCard(card).WithValueProp(valueProp);
         
         if (CustomTargetType.IsCustomSingleTargetType(card.TargetType))
         {
