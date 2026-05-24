@@ -534,10 +534,9 @@ public static class ExtendedSavePatches
     static class CanonicalizeExtendedRunData
     {
         [HarmonyPostfix]
-        static void CanonicalizeExtendedData(RunManager __instance, SerializableRun __result)
+        static void CanonicalizeExtendedData(SerializableRun save, SerializableRun __result)
         {
-            var data = new ExtendedSaveHandlers<IRunState, SerializableRun>.ExtendedSaveData(__instance.State!);
-            ExtendedSaveHandlers<IRunState, SerializableRun>.ExtendedData[__result] = data;
+            ExtendedSaveHandlers<IRunState, SerializableRun>.ExtendedData[__result] = ExtendedSaveHandlers<IRunState, SerializableRun>.ExtendedData[save];
         }
     }
 
