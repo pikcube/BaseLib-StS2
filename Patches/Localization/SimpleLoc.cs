@@ -110,7 +110,7 @@ public static partial class SimpleLoc
         loc = UpgradeSwapRegex.Replace(loc, MakeUpgradeSwap);
         loc = loc.Replace("/-", "-").Replace("/+", "+");
         
-        BaseLibMain.Logger.Info($"SimplifiedLoc: {loc}");
+        BaseLibMain.Logger.VeryDebug($"SimplifiedLoc: {loc}");
             
         return loc;
     }
