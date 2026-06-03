@@ -7,6 +7,10 @@ using HarmonyLib;
 
 namespace BaseLib.Utils.Patching;
 
+/// <summary>
+/// Utility class for patching async method state machines.
+/// Can generate additional states to call an async method.
+/// </summary>
 public static class AsyncMethodCall
 {
     internal enum ResultType
@@ -23,12 +27,12 @@ public static class AsyncMethodCall
     internal static readonly MethodInfo StoreDictionaryForStateMethod = typeof(AsyncMethodCall).Method(nameof(StoreDictionaryForState));
     internal static readonly MethodInfo LoadDictionaryForStateMethod = typeof(AsyncMethodCall).Method(nameof(LoadDictionaryForState));
     
-    internal static readonly MethodInfo GetAwaiterMethod = typeof(AsyncMethodCall).Method(nameof(GetAwaiter));
     internal static readonly MethodInfo StoreAwaiterMethod = typeof(AsyncMethodCall).Method(nameof(StoreAwaiter));
-    internal static readonly MethodInfo GetNamedMethod = typeof(AsyncMethodCall).Method(nameof(GetNamed));
-    internal static readonly MethodInfo StoreNamedMethod = typeof(AsyncMethodCall).Method(nameof(StoreNamed));
+    internal static readonly MethodInfo GetAwaiterMethod = typeof(AsyncMethodCall).Method(nameof(GetAwaiter));
     
-
+    internal static readonly MethodInfo StoreNamedMethod = typeof(AsyncMethodCall).Method(nameof(StoreNamed));
+    internal static readonly MethodInfo GetNamedMethod = typeof(AsyncMethodCall).Method(nameof(GetNamed));
+    
     internal static readonly InstructionMatcher StateAwaitMatcher = new InstructionMatcher()
         .any().PredicateMatch(arg =>
         {
