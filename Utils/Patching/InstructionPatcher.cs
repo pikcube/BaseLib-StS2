@@ -40,9 +40,6 @@ public class InstructionPatcher(IEnumerable<CodeInstruction> instructions)
     /// After matching is complete, position is on the code instruction following the last match.
     /// If a match is not found, onFailMatch is called. By default, this will throw an exception.
     /// </summary>
-    /// <param name="onFailMatch"></param>
-    /// <param name="matchers"></param>
-    /// <returns></returns>
     public InstructionPatcher Match(Action<IMatcher[]> onFailMatch, params IMatcher[] matchers)
     {
         if (_index < 0) _index = 0;
@@ -57,6 +54,27 @@ public class InstructionPatcher(IEnumerable<CodeInstruction> instructions)
 
         Log.Add("Found end of match at " + _index + "; last match starts at " + _lastMatchStart);
 
+        return this;
+    }
+
+    /// <summary>
+    /// Iterates over given matchers and attempts to match each in order.
+    /// After matching is complete, position is on the code instruction following the last match.
+    /// If a match is not found, null will be returned, skipping operations chained with the ?. operator.
+    /// </summary>
+    public InstructionPatcher? TryMatch(params IMatcher[] matchers)
+    {
+        if (_index < 0) _index = 0;
+        foreach (IMatcher matcher in matchers)
+        {
+            if (!matcher.Match(Log, _code, _index, out _lastMatchStart, out _index))
+            {
+                Log.Add("TryMatch failed");
+                return null;
+            }
+        }
+
+        Log.Add("Found end of match at " + _index + "; last match starts at " + _lastMatchStart);
         return this;
     }
 

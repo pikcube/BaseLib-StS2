@@ -310,8 +310,8 @@ public static class AsyncMethodCall
         
         //Generate combined result
         var instructions = stateSections.Code;
-        BaseLibMain.Logger.Debug($"CODE:\n{instructions.Join(instruction => instruction.ToString(), "\n")}");
-        instructions.CheckCode();
+        //BaseLibMain.Logger.Debug($"CODE:\n{instructions.Join(instruction => instruction.ToString(), "\n")}");
+        //instructions.CheckCode();
         return instructions;
     }
 

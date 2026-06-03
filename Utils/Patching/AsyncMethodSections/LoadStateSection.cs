@@ -10,11 +10,10 @@ internal class LoadStateSection : IAsyncMethodSection
     /// </summary>
     public static LoadStateSection Read(AsyncMethodContext context, IEnumerator<CodeInstruction> codeEnumerator)
     {
-        bool loadsFoundStateField = false;
-        bool loadsStateFromDict = false;
-        bool loadedDictionary = false;
-        int? stateKeyLocalIndex = null;
-        int? stringDictLocalIndex = null;
+        var loadsFoundStateField = false;
+        var loadsStateFromDict = false;
+        int stateKeyLocalIndex = -1;
+        int stringDictLocalIndex = -1;
         
         List<CodeInstruction> loadStateSection = [];
         do
@@ -31,34 +30,9 @@ internal class LoadStateSection : IAsyncMethodSection
                 loadsFoundStateField = true;
             }
 
-            if (!loadsStateFromDict)
+            if (instruction.Calls(AsyncMethodCall.LoadStateFromDictMethod))
             {
-                if (instruction.Calls(AsyncMethodCall.LoadStateFromDictMethod))
-                {
-                    loadsStateFromDict = true;
-                }
-            }
-            else
-            {
-                if (stateKeyLocalIndex == null && instruction.IsStloc())
-                {
-                    stateKeyLocalIndex = instruction.LocalIndex();
-                }
-
-                if (!loadedDictionary)
-                {
-                    if (instruction.Calls(AsyncMethodCall.LoadDictionaryForStateMethod))
-                    {
-                        loadedDictionary = true;
-                    }
-                }
-                else
-                {
-                    if (stringDictLocalIndex == null && instruction.IsStloc())
-                    {
-                        stringDictLocalIndex = instruction.LocalIndex();
-                    }
-                }
+                loadsStateFromDict = true;
             }
         }
         while (codeEnumerator.MoveNext());
@@ -84,21 +58,41 @@ internal class LoadStateSection : IAsyncMethodSection
                 CodeInstruction.LoadArgument(0),
                 new CodeInstruction(OpCodes.Ldfld, context.StateField),
                 new CodeInstruction(OpCodes.Dup),
-                CodeInstruction.StoreLocal(stateKeyLocalIndex.Value),
+                CodeInstruction.StoreLocal(stateKeyLocalIndex),
                 new CodeInstruction(OpCodes.Call, AsyncMethodCall.LoadStateFromDictMethod),
                 new CodeInstruction(OpCodes.Stfld, context.StateField),
-                CodeInstruction.LoadLocal(stateKeyLocalIndex.Value),
+                CodeInstruction.LoadLocal(stateKeyLocalIndex),
                 new CodeInstruction(OpCodes.Call, AsyncMethodCall.LoadDictionaryForStateMethod),
-                CodeInstruction.StoreLocal(stringDictLocalIndex.Value),
+                CodeInstruction.StoreLocal(stringDictLocalIndex),
                 ..loadStateSection
             ];
         }
-        else if (stateKeyLocalIndex == null) //Loads state from dict but did not find local in which it is stored
+        else
+        {
+            BaseLibMain.Logger.Debug("Checking for external state loading");
+
+            new InstructionPatcher(loadStateSection)
+                .TryMatch(new InstructionMatcher()
+                    .ldfld(context.StateField)
+                    .dup()
+                    .stloc_any()
+                )
+                ?.Step(-1)
+                .GetIndexOperand(out stateKeyLocalIndex)
+                .TryMatch(new InstructionMatcher()
+                    .call(AsyncMethodCall.LoadDictionaryForStateMethod)
+                    .stloc_any()
+                )
+                ?.Step(-1)
+                .GetIndexOperand(out stringDictLocalIndex);
+        }
+        
+        if (stateKeyLocalIndex == -1) //Loads state from dict but did not find local in which it is stored
         {
             throw new ArgumentException(
                 "Failed to find local used to hold temporary state key.");
         }
-        else if (stringDictLocalIndex == null)
+        if (stringDictLocalIndex == -1)
         {
             throw new ArgumentException(
                 "Failed to find local used to hold extra saved values.");
@@ -108,8 +102,8 @@ internal class LoadStateSection : IAsyncMethodSection
         {
             Code = loadStateSection,
             AddStateLoading = !loadsStateFromDict,
-            StateKeyLocal = stateKeyLocalIndex.Value,
-            StringDictLocal = stringDictLocalIndex.Value
+            StateKeyLocal = stateKeyLocalIndex,
+            StringDictLocal = stringDictLocalIndex
         };
     }
 
