@@ -314,7 +314,7 @@ public static class AsyncMethodCall
         
         //Generate combined result
         var instructions = stateSections.Code;
-        instructions.LogCode();
+        //instructions.LogCode();
         //instructions.CheckCode();
         return instructions;
     }
