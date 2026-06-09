@@ -85,20 +85,11 @@ class PostModInitPatch
             }
 
             bool hasSavedProperty = false;
-            foreach (var prop in type.GetProperties())
+            foreach (var prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 var savedPropertyAttr = prop.GetCustomAttribute<SavedPropertyAttribute>();
                 if (savedPropertyAttr == null) continue;
                 if (prop.DeclaringType == null) continue;
-                
-                if (prop.DeclaringType.GetRootNamespace() != "MegaCrit")
-                {
-                    var prefix = prop.DeclaringType.GetRootNamespace() + "_";
-                    if (prop.Name.Length < 16 && !prop.Name.StartsWith(prefix))
-                    {
-                        BaseLibMain.Logger.Warn($"Recommended to add a prefix such as \"{prefix}\" to SavedProperty {prop.Name} for reduced likelihood of name clashes.");
-                    }
-                }
 
                 if (!SavePatchUtils.IsStoreTypeBaseSupported(prop.PropertyType))
                 {
