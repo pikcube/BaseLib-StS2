@@ -9,7 +9,7 @@ namespace BaseLib.Hooks;
 /// <summary>
 /// Interface for models that should know when a card is downgraded
 /// </summary>
-public interface IAfterCardDowngradedSubscriber
+public interface IAfterCardDowngraded
 {
     /// <summary>
     /// Fires after a card is downgraded
@@ -25,7 +25,7 @@ public interface IAfterCardDowngradedSubscriber
             var runState = __instance.Owner?.RunState ?? (combatState == null ? NullRunState.Instance : new CombatStateWrapper(combatState).RunState);
             foreach (var item in BetaMainCompatibility.RunState.IterateHookListeners.Invoke<IEnumerable<AbstractModel>>(runState, combatState) ?? [])
             {
-                if (item is IAfterCardDowngradedSubscriber subscriber)
+                if (item is IAfterCardDowngraded subscriber)
                     subscriber.AfterCardDowngraded(__instance);
             }
         }
