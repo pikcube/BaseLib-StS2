@@ -189,7 +189,14 @@ public class SimpleModConfig : ModConfig
     protected NConfigOptionRow CreateStandardOption(Func<PropertyInfo, Control> controlCreator, PropertyInfo property, bool addHoverTip = false)
     {
         var control = controlCreator.Invoke(property);
-        var label = CreateRawLabelControl(GetLabelText(property.Name), 28);
+        
+        var locOverrideAttr = property.GetCustomAttribute<ConfigOverrideLocalizationAttribute>();
+
+        var text = locOverrideAttr != null ? 
+            GetLabelText(locOverrideAttr.OverridePropertyName, false) : 
+            GetLabelText(property.Name);
+        
+        var label = CreateRawLabelControl(text, 28);
         var option = new NConfigOptionRow(ModPrefix, property.Name, label, control);
         control.ClearFocusNeighbors();
         if (addHoverTip) option.AddHoverTip();

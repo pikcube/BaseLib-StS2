@@ -57,21 +57,6 @@ public partial class NConfigButton : NSettingsButton
     }
 
     /// <summary>
-    /// OBSOLETE: Sets the color using an HSV shader. Broken and will be removed soon; ONLY kept for binary compatibility.
-    /// </summary>
-    /// <param name="h">Hue, range 0-1</param>
-    /// <param name="s">Saturation, 0-1 or higher for boosted saturation</param>
-    /// <param name="v">Value, range 0-1</param>
-    [Obsolete("BROKEN: Use SetColor(Color) instead")]
-    public void SetColor(float h, float s, float v)
-    {
-        // TODO: remove this method, perhaps in May or June 2026. It likely has no external users and is kept for a while just in case.
-        const float baseHue = 0.48f;
-        var outputHue = (baseHue + (1f - h)) % 1f;
-        SetColor(Color.FromHsv(outputHue, Math.Clamp(s * 0.4f, 0f, 1f), v));
-    }
-
-    /// <summary>
     /// Sets the button's color using Godot's SelfModulate property.<br/>
     /// The overall color will be slightly darker than the color specified, since it's a modulation of the existing
     /// colors, that aren't fully white.

@@ -420,7 +420,12 @@ public abstract partial class ModConfig
 
     protected string GetLabelText(string labelName)
     {
-        var loc = LocString.GetIfExists("settings_ui", $"{ModPrefix}{StringHelper.Slugify(labelName)}.title");
+        return GetLabelText(labelName, true);
+    }
+    protected string GetLabelText(string labelName, bool slugify)
+    {
+        var key = slugify ? StringHelper.Slugify(labelName) : labelName;
+        var loc = LocString.GetIfExists("settings_ui", $"{ModPrefix}{key}.title");
         return loc != null ? loc.GetFormattedText() : labelName;
     }
 
