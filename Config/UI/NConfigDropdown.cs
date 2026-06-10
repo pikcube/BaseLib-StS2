@@ -46,9 +46,11 @@ public partial class NConfigDropdown : NSettingsDropdown
         var type = property.PropertyType;
         if (!type.IsEnum) throw new NotSupportedException("Dropdown only supports enum types currently");
 
+        var overrideProperty = property.GetCustomAttribute<ConfigEnumLocalizationOverrideAttribute>();
+        var propertyName = overrideProperty?.OverridePropertyName ?? StringHelper.Slugify(property.Name);
         foreach (var value in type.GetEnumValues())
         {
-            var loc = LocString.GetIfExists("settings_ui", $"{modPrefix}{StringHelper.Slugify(property.Name)}.{value}");
+            var loc = LocString.GetIfExists("settings_ui", $"{modPrefix}{propertyName}.{value}");
             var label = loc?.GetRawText() ?? value?.ToString() ?? "UNKNOWN";
 
             _items.Add(new NConfigDropdownItem.ItemData(label, value, () =>
