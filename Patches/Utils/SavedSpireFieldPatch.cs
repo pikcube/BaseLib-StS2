@@ -40,10 +40,6 @@ static class SavedSpireFieldPatch
             field.Import(model, __instance);
     }
     
-    //TODO - Patch SerializablePlayer
-    //Allow SavedSpirefield<player> to be saved and loaded to this
-
-    
     internal static void AddFieldsSorted()
     {
         BaseLibMain.Logger.Info($"Found {RegisteredFields.Count} SavedSpireFields.");
@@ -77,6 +73,8 @@ static class SavedSpireFieldPatch
         {
             propertyToId[name] = idToProperty.Count;
             idToProperty.Add(name);
+            
+            BaseLibMain.Logger.Debug($"Added saved property name to basegame cache: {name} => {propertyToId[name]}");
 
             int newBitSize = Mathf.CeilToInt(Math.Log2(idToProperty.Count));
 

@@ -36,7 +36,9 @@ public class SavePatchUtils
     public static bool IsHolderTypeBaseSupported(Type t)
     {
         return t.IsAssignableTo(typeof(RelicModel))
-               || t.IsAssignableTo(typeof(CardModel));
+               || t.IsAssignableTo(typeof(CardModel))
+               || t.IsAssignableTo(typeof(EnchantmentModel)) 
+               || t.IsAssignableTo(typeof(ModifierModel));
     }
     
     /// <summary>

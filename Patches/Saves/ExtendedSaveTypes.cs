@@ -20,7 +20,7 @@ public class ExtendedSaveTypes
     {
         if (__result != null) return;
         
-        BaseLibMain.Logger.Info($"Type {type} missing for serialization, checking extended types");
+        BaseLibMain.Logger.Debug($"Type {type} missing for serialization, checking extended types");
 
         if (!ExtendedTypes.TryGetValue(type, out var typeInfoFunc)) return;
 
