@@ -31,8 +31,11 @@ public class ConfigSliderAttribute(double min = 0.0, double max = 100.0, double 
     public double Step { get; } = step;
 
     /// <summary>
-    /// The string format to use for the slider's label.
-    /// Uses standard C# format, see <see cref="String.Format(string, object?)"/>.
+    /// <para>The string format to use for the slider's label.
+    /// Uses standard C# format, see <see cref="String.Format(string, object?)"/>.</para>
+    /// <para>If a localization entry YOURMOD-PROPERTY_NAME.sliderFormat exists in settings_ui, it takes
+    /// precedence; this value is then only the fallback for languages without such an entry.
+    /// Avoid putting words in here. Put them in the localization files instead.</para>
     /// </summary>
     public string? Format { get; set; }
 }
