@@ -21,13 +21,12 @@ public static class BaseLibMain
 
     public static MegaCrit.Sts2.Core.Logging.Logger Logger { get; } = new(ModId, MegaCrit.Sts2.Core.Logging.LogType.Generic);
 
-    private static Harmony? _harmony;
     internal static Harmony MainHarmony
     {
         get
         {
-            _harmony ??= new Harmony(ModId);
-            return _harmony;
+            field ??= new Harmony(ModId);
+            return field;
         }
     }
 
