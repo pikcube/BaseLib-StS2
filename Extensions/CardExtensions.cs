@@ -39,7 +39,7 @@ public static class CardExtensions
                 if (CustomTargetType.IsCustomMultiTargetType(card.TargetType))
                 {
                     state = BetaMainCompatibility.CardModel_.WrappedCombatState(card);
-                    return state?.Creatures.Where(c => CustomTargetType.CanMultiTarget(card.TargetType, c)).ToList() ?? [];
+                    return state?.Creatures.Where(c => CustomTargetType.CanMultiTarget(card.TargetType, c, card.Owner)).ToList() ?? [];
                 }
                 
                 var targetTypeName = CustomEnums.EnumName<TargetType>((int) card.TargetType) ?? 

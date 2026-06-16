@@ -56,7 +56,7 @@
         <PackageReference Include="Krafs.Publicizer" Version="2.3.0" PrivateAssets="All"/>
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="True">
         <Publicize Include="sts2" IncludeVirtualMembers="false" IncludeCompilerGeneratedMembers="false" />
     </ItemGroup>
     

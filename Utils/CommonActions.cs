@@ -102,7 +102,7 @@ public static class CommonActions
         {
             var state = BetaMainCompatibility.CardModel_.WrappedCombatState(card);
             if (state == null) return cmd;
-            var targets = state.Creatures.Where(c => CustomTargetType.CanMultiTarget(card.TargetType, c));
+            var targets = state.Creatures.Where(c => CustomTargetType.CanMultiTarget(card.TargetType, c, card.Owner));
             cmd.TargetingFiltered(targets);
         }
         else
@@ -167,7 +167,7 @@ public static class CommonActions
         {
             var state = BetaMainCompatibility.CardModel_.WrappedCombatState(card);
             if (state == null) return cmd;
-            var targets = state.Creatures.Where(c =>  CustomTargetType.CanMultiTarget(card.TargetType, c));
+            var targets = state.Creatures.Where(c =>  CustomTargetType.CanMultiTarget(card.TargetType, c, card.Owner));
             cmd.TargetingFiltered(targets);
         }
         else
