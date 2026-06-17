@@ -6,6 +6,7 @@ using BaseLib.Extensions;
 using BaseLib.Patches.Content;
 using BaseLib.Patches.Saves;
 using BaseLib.Patches.Utils;
+using BaseLib.Utils;
 using BaseLib.Utils.NodeFactories;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Modding;
@@ -56,6 +57,8 @@ public static class BaseLibMain
         ExtendedSavePatches.Patch(MainHarmony);
 
         MainHarmony.TryPatchAll(assembly);
+        
+        CustomLocTableManager.Register("card_modifiers");
     }
 
     //Hopefully temporary fix for linux
