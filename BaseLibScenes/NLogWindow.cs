@@ -108,8 +108,8 @@ public partial class NLogWindow : Window
 
         _filterInput.TextChanged += (_) => { _settingChanged = true; UpdateFilter(); };
         _regexButton.Toggled += (_) => { _settingChanged = true; UpdateFilter(); };
-        _inverseButton.Toggled += (_) => { _settingChanged = true; Refresh(); ScrollToBottomAsync(); };
-        _logLevelDropdown.ItemSelected += (_) => { _settingChanged = true; Refresh(); ScrollToBottomAsync(); };
+        _inverseButton.Toggled += (_) => { _settingChanged = true; RegenText(); ScrollToBottomAsync(); };
+        _logLevelDropdown.ItemSelected += (_) => { _settingChanged = true; RegenText(); ScrollToBottomAsync(); };
 
         SizeChanged += OnSizeChanged;
         CloseRequested += QueueFree;
