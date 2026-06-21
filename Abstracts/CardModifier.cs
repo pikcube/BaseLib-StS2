@@ -175,6 +175,16 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
     /// <summary>
     /// Adds a card modifier to a card.
     /// </summary>
+    public static void AddModifier<T>(CardModel card) where T : CardModifier
+    {
+        AddModifier(card, ModelDb.CardModifier<T>(true));
+    }
+    
+    /// <summary>
+    /// Adds a card modifier to a card. The modifier being applied should be a mutable instance.
+    /// Use the overload with a generic parameter if you don't need to set up the modifier before application.
+    /// Otherwise, obtain a mutable instance using the ModelDb.CardModifier extension methods.
+    /// </summary>
     public static void AddModifier(CardModel card, CardModifier modifier)
     {
         modifier.ApplyInternal(card);

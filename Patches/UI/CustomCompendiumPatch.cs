@@ -94,7 +94,8 @@ public class CustomPoolFilters
         {
             Name = "FILTER-" + character.Id,
             Size = new(64, 64),
-            CustomMinimumSize = new(64, 64)
+            CustomMinimumSize = new(64, 64),
+            FocusMode = Control.FocusModeEnum.All
         };
 
         //filter.Draw += filter.DrawDebug;
@@ -196,11 +197,9 @@ public class CustomPoolFilters
             }
 
             var controllerSelectionReticle = controllerSelectionReticleField.GetValue(filter) as NSelectionReticle;
-
-            controllerSelectionReticle!.CustomMinimumSize *= scale;
-            controllerSelectionReticle!.Size *= scale;
-            controllerSelectionReticle!.PivotOffset *= scale;
-            controllerSelectionReticle!.Position *= scale;
+            controllerSelectionReticle!.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+            controllerSelectionReticle.PivotOffset = controllerSelectionReticle.Size / 2.0f;
+            controllerSelectionReticle.ZIndex = 10;
         }
 
         parent.Columns = row;
