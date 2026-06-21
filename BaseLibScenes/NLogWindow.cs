@@ -394,12 +394,7 @@ public partial class NLogWindow : Window
         if (label is null) return;
         if (TryGetBracketLevel(line) < minLevel) return;
 
-        var color = GetColorForLine(line);
-        if (color is not null) label.PushColor(color.Value);
-
         label.AddText(line);
-
-        if (color is not null) label.Pop();
     }
 
     private static LogLevel TryGetBracketLevel(string line)

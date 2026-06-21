@@ -37,14 +37,15 @@ class PostModInitPatch
 
         foreach (var mod in ModManager.GetLoadedMods())
         {
-            if (mod.manifest?.affectsGameplay == true)
+            // Enable gameplay modification if ANY loaded gameplay-affecting mod depends on
+            // BaseLib. Both conditions must be checked together: breaking on the first
+            // gameplay-affecting mod regardless of its dependency would leave this false
+            // whenever a non-BaseLib gameplay mod happens to load first.
+            if (mod.manifest?.affectsGameplay == true &&
+                BetaMainCompatibility._ModManifest.HasDependency(mod.manifest, "BaseLib"))
             {
-                if (BetaMainCompatibility._ModManifest.HasDependency(mod.manifest, "BaseLib"))
-                {
-                    BaseLibMain.Logger.Info($"Mod {mod.manifest.id} that modifies gameplay has BaseLib dependency; gameplay modification enabled.");
-                    CanModifyGameplay = true;
-                }
-
+                BaseLibMain.Logger.Info($"Mod {mod.manifest.id} that modifies gameplay has BaseLib dependency; gameplay modification enabled.");
+                CanModifyGameplay = true;
                 break;
             }
         }
