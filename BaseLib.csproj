@@ -111,6 +111,12 @@
         <Copy SourceFiles="$(MSBuildProjectName).json" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
     </Target>
 
+    <Target Name="CopyToUploadFolderOnBuild" AfterTargets="AfterBuild" Condition="'$(UploadBuild)' == 'true'">
+        <Message Text="Copying .dll and manifest to upload location folder ($(Sts2Path)/mod_upload/$(MSBuildProjectName)/content/$(MSBuildProjectName))." Importance="high" />
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(Sts2Path)/mod_upload/$(MSBuildProjectName)/content/$(MSBuildProjectName)/" />
+        <Copy SourceFiles="$(MSBuildProjectName).json" DestinationFolder="$(Sts2Path)/mod_upload/$(MSBuildProjectName)/content/$(MSBuildProjectName)/" />
+    </Target>
+
     <Target Name="GodotPublish" AfterTargets="Publish" Condition="'$(GodotPath)' != '' and Exists('$(GodotPath)') and '$(IsInnerGodotExport)' != 'true'">
         <Message Text="Exporting Godot .pck to build folder" Importance="high"/>
         <Exec Command="&quot;$(GodotPath)&quot; --headless --export-pack &quot;BasicExport&quot; &quot;build/$(MSBuildProjectName).pck&quot;"
@@ -118,6 +124,11 @@
               ContinueOnError="WarnAndContinue"/>
         <Message Text="Copying Godot .pck to mods folder" Importance="high"/>
         <Copy SourceFiles="build/$(MSBuildProjectName).pck" DestinationFolder="$(ModsPath)$(MSBuildProjectName)/" />
+    </Target>
+
+    <Target Name="CopyGodotPackToUploadFolder" AfterTargets="GodotPublish" Condition="'$(UploadBuild)' == 'true'">
+        <Message Text="Copying .pck to upload location folder." Importance="high" />
+        <Copy SourceFiles="build/$(MSBuildProjectName).pck" DestinationFolder="$(Sts2Path)/mod_upload/$(MSBuildProjectName)/content/$(MSBuildProjectName)/" />
     </Target>
 
     <Target Name="GodotPublishSkipped" AfterTargets="Publish" Condition="'$(GodotPath)' == '' or !Exists('$(GodotPath)')">
