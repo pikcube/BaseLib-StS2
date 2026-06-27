@@ -329,7 +329,12 @@ public abstract class ConstructedCardModel(
     }
 
     /// <summary>
-    /// Can accept PowerModel, CardKeyword, CardModel, PotionModel, StaticHoverTip, EnchantmentModel
+    /// <p>Can accept a PowerModel, CardModel, PotionModel, or EnchantmentModel type</p>
+    /// <p>Or a CardKeyword or StaticHoverTip enum value.</p>
+    /// <code>WithTip(typeof(StrikeIronclad));
+    /// WithTip(CardKeyword.Exhaust);
+    /// WithTip(typeof(StrengthPower));
+    /// WithTip(StaticHoverTip.Evoke);</code>
     /// </summary>
     /// <param name="tipSource"></param>
     /// <returns></returns>
@@ -340,7 +345,8 @@ public abstract class ConstructedCardModel(
     }
     
     /// <summary>
-    /// Adds multiple hover tips to the card.
+    /// Adds dynamic hover tips to the card using a function based on the card instance.
+    /// Do not reference the card's fields directly; use the model received as a parameter.
     /// </summary>
     protected ConstructedCardModel WithTips(Func<CardModel, IEnumerable<IHoverTip>> multiTipSource)
     {
