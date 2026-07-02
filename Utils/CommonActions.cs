@@ -52,12 +52,12 @@ public static class CommonActions
     {
         if (card.DynamicVars.ContainsKey(CalculatedDamageVar.defaultName))
         {
-            return CardAttack(card, play, play.Target, card.DynamicVars.CalculatedDamage, card.DynamicVars.CalculatedDamage.Props, hitCount, vfx, sfx, tmpSfx);
+            return CardAttack(card, play, play?.Target, card.DynamicVars.CalculatedDamage, card.DynamicVars.CalculatedDamage.Props, hitCount, vfx, sfx, tmpSfx);
         }
 
         if (card.DynamicVars.ContainsKey(DamageVar.defaultName))
         {
-            return CardAttack(card, play, play.Target, card.DynamicVars.Damage.BaseValue, card.DynamicVars.Damage.Props, hitCount, vfx, sfx, tmpSfx);
+            return CardAttack(card, play, play?.Target, card.DynamicVars.Damage.BaseValue, card.DynamicVars.Damage.Props, hitCount, vfx, sfx, tmpSfx);
         }
         throw new Exception($"Card {card.Title} does not have a damage variable supported by CommonActions.CardAttack");
     }
