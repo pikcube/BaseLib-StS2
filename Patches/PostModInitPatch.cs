@@ -110,7 +110,7 @@ class PostModInitPatch
             {
                 var savedPropertyAttr = prop.GetCustomAttribute<SavedPropertyAttribute>();
                 if (savedPropertyAttr == null) continue;
-                if (prop.DeclaringType == null || (prop.DeclaringType != type && !ReflectionHelper.ModTypes.Contains(prop.DeclaringType))) continue;
+                if (prop.DeclaringType == null) continue;
 
                 if (!SavePatchUtils.IsStoreTypeBaseSupported(prop.PropertyType))
                 {
