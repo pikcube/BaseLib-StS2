@@ -8,12 +8,14 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
+using MegaCrit.Sts2.Core.HoverTips;
 using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Localization.DynamicVars;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Multiplayer.Serialization;
 using MegaCrit.Sts2.Core.Saves.Runs;
+using MegaCrit.Sts2.Core.ValueProps;
 
 namespace BaseLib.Abstracts;
 
@@ -21,7 +23,8 @@ namespace BaseLib.Abstracts;
 /// A model that is attached to a card to modify its behavior.
 /// Receives all combat hooks, and is capable of modifying the card's description.
 /// More features to be added in the future.
-/// TODO - base value modification like enchants/afflictions
+/// TODO - in progress - base value modification like enchants/afflictions
+/// Passive cost modification? Without calling cost modification methods; works as a "modifier" in EnergyCost
 /// </summary>
 public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
 {
@@ -38,7 +41,7 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
                 });
     
     /// <summary>
-    /// Obtains a new instance of a CardModifier from ModelDb using <see cref="ModelDbExtensions.CardModifier"/>.
+    /// Obtains a new instance of a CardModifier from ModelDb using <see cref="CardModifier"/>.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
@@ -47,7 +50,7 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
         return ModelDb.CardModifier<T>();
     }
     
-    public static void RegisterSave()
+    internal static void RegisterSave()
     {
         ExtendedSaveTypes.RegisterListSaveType<ModifierSave>();
         ExtendedSaveTypes.RegisterDictionarySaveType<string, int>();
@@ -380,6 +383,14 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
     }
 
     /// <summary>
+    /// Receives the card's list of tips to add to.
+    /// </summary>
+    public virtual void AddTips(List<IHoverTip> tips)
+    {
+        
+    }
+
+    /// <summary>
     /// Called after the modifier is applied to a card, including when a card is copied.
     /// Due to nature of when this occurs, async combat effects should not occur here.
     /// </summary>
@@ -405,6 +416,10 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
         _dynamicVars.InitializeWithOwner(Owner!);
     }
     
+    /// <summary>
+    /// Called whenever the attached card updates its dynamic variable previews to update the modifier's dynamic vars.
+    /// Can be overridden if some custom behavior to update display information is needed.
+    /// </summary>
     public virtual void UpdateDynamicVarPreview(CardPreviewMode previewMode, Creature? target, bool runGlobalHooks)
     {
         foreach (var dynVar in DynamicVars.Values)
@@ -421,14 +436,53 @@ public abstract class CardModifier : AbstractModel, IComparable<CardModifier>
     {
         
     }
+
+    /// <summary>
+    /// Functions like an EnchantmentModel's EnchantDamageAdditive.
+    /// Add to the amount of damage that this modifier's card does.
+    /// This hook runs BEFORE all other damage modification hooks.
+    /// NOT YET FULLY FUNCTIONAL.
+    /// </summary>
+    /// <param name="originalDamage">The amount of damage that would be dealt.</param>
+    /// <param name="props">ValueProp for damage.</param>
+    /// <returns>Amount of damage to be added.</returns>
+    public virtual decimal ModifyBaseDamageAdditive(decimal originalDamage, ValueProp props) => 0;
+    
+    /// <summary>
+    /// Functions like an EnchantmentModel's EnchantDamageMultiplicative.
+    /// Multiply the amount of damage that this modifier's card does.
+    /// This hook runs BEFORE all other damage modification hooks.
+    /// NOT YET FULLY FUNCTIONAL.
+    /// </summary>
+    /// <param name="originalDamage">The amount of damage that would be dealt.</param>
+    /// <param name="props">ValueProp for damage.</param>
+    /// <returns>Amount that the damage should be multiplied by.</returns>
+    public virtual decimal ModifyBaseDamageMultiplicative(decimal originalDamage, ValueProp props) => 1;
+    
+    /// <summary>
+    /// Functions like an EnchantmentModel's EnchantBlockAdditive.
+    /// Add to the amount of block that this modifier's card gains.
+    /// This hook runs BEFORE all other block modification hooks.
+    /// NOT YET FUNCTIONAL.
+    /// </summary>
+    /// <param name="originalBlock">The original amount of block that would be gained.</param>
+    /// <returns>The amount to add to the block gain.</returns>
+    public virtual decimal ModifyBaseBlockAdditive(decimal originalBlock) => 0M;
+
+    /// <summary>
+    /// Functions like an EnchantmentModel's EnchantBlockMultiplicative.
+    /// Modify the amount of block that this modifier's card gains.
+    /// This hook runs BEFORE all other block modification hooks.
+    /// NOT YET FUNCTIONAL.
+    /// </summary>
+    /// <param name="originalBlock">The original amount of block that would be gained.</param>
+    /// <returns>The amount to multiply the block gain by.</returns>
+    public virtual decimal ModifyBaseBlockMultiplicative(decimal originalBlock) => 1M;
     
     /// <summary>
     /// Called after the card's OnPlay method is called. Occurs before normal AfterCardPlayed hook.
     /// </summary>
-    public virtual Task OnPlay(PlayerChoiceContext choiceContext, CardPlay cardPlay)
-    {
-        return Task.CompletedTask;
-    }
+    public virtual Task OnPlay(PlayerChoiceContext choiceContext, CardPlay cardPlay) => Task.CompletedTask;
 
     int IComparable<CardModifier>.CompareTo(CardModifier? other)
     {
