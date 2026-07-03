@@ -33,7 +33,7 @@ public class ExtraTooltips
     
     [HarmonyPatch(typeof(RelicModel), nameof(RelicModel.HoverTips), MethodType.Getter)]
     [HarmonyPostfix]
-    static IEnumerable<IHoverTip> AddCustomRelicTips(RelicModel __instance, IEnumerable<IHoverTip> __result)
+    static IEnumerable<IHoverTip> AddCustomRelicTips(IEnumerable<IHoverTip> __result, RelicModel __instance)
     {
         if (__result is ICollection<IHoverTip> tipCollection)
         {
@@ -45,7 +45,7 @@ public class ExtraTooltips
     
     [HarmonyPatch(typeof(PowerModel), nameof(PowerModel.HoverTips), MethodType.Getter)]
     [HarmonyPostfix]
-    static IEnumerable<IHoverTip> AddCustomPowerTips(PowerModel __instance, IEnumerable<IHoverTip> __result)
+    static IEnumerable<IHoverTip> AddCustomPowerTips(IEnumerable<IHoverTip> __result, PowerModel __instance)
     {
         if (__result is ICollection<IHoverTip> tipCollection)
         {
