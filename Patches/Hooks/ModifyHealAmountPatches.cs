@@ -4,10 +4,9 @@ using BaseLib.Hooks;
 using BaseLib.Utils;
 using BaseLib.Utils.Patching;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Creatures;
-using MegaCrit.Sts2.Core.Models;
-using MegaCrit.Sts2.Core.Runs;
 
 namespace BaseLib.Patches.Hooks;
 
@@ -48,38 +47,34 @@ public static class ModifyHealAmountPatches
 
     public static decimal ModifyHeal(decimal amount, Creature creature)
     {
-        var combatState = BetaMainCompatibility.Creature_.CombatState.Get(creature);
-        var runState = creature.Player?.RunState ?? (combatState == null ? NullRunState.Instance : new CombatStateWrapper(combatState).RunState);
-
-        ModifyAdditive(runState, combatState, creature, ref amount);
-        ModifyMultiplicative(runState, combatState, creature, ref amount);
+        var combatState = creature.CombatState;
+        if (combatState == null) return amount;
+        
+        amount = ModifyAdditive(combatState, creature, amount);
+        amount = ModifyMultiplicative(combatState, creature, amount);
         
         return amount;
     }
     
-    static void ModifyAdditive(IRunState runState, object? combatState, Creature creature, ref decimal amount)
+    static decimal ModifyAdditive(ICombatState combatState, Creature creature, decimal amount)
     {
-        decimal num = amount;
-
-        foreach (var item in BetaMainCompatibility.RunState.IterateHookListeners.Invoke<IEnumerable<AbstractModel>>(runState, combatState) ?? [])
-        {
-            if (item is IHealAmountModifier mod)
-                num += mod.ModifyHealAdditive(creature, amount); // pass the amount before any addition
-        }
-
-        amount = num;
+        // Aggregates modifications sequentially using the HookUtils pipeline
+        return HookUtils.Aggregate<IHealAmountModifier, decimal>(
+            combatState, 
+            amount, 
+            (mod, currentAcc) => currentAcc + mod.ModifyHealAdditive(creature, amount)
+        );
     }
 
-    static void ModifyMultiplicative(IRunState runState, object? combatState, Creature creature, ref decimal __result)
+    static decimal ModifyMultiplicative(ICombatState combatState, Creature creature, decimal amount)
     {
-        decimal num = __result;
+        // Accumulates multiplicative modifiers and clamps the total floor to 0
+        var finalResult = HookUtils.Aggregate<IHealAmountModifier, decimal>(
+            combatState, 
+            amount, 
+            (mod, currentAcc) => currentAcc * mod.ModifyHealMultiplicative(creature, amount) 
+        );
 
-        foreach (var item in BetaMainCompatibility.RunState.IterateHookListeners.Invoke<IEnumerable<AbstractModel>>(runState, combatState) ?? [])
-        {
-            if (item is IHealAmountModifier mod)
-                num *= mod.ModifyHealMultiplicative(creature, __result); // pass the amount before any multiplication
-        }
-
-        __result = Math.Max(0m, num);
+        return Math.Max(0m, finalResult);
     }
 }
