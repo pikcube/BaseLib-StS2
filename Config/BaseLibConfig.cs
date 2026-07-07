@@ -20,6 +20,8 @@ internal class BaseLibConfig : SimpleModConfig
     public static int LogFontSize { get; set; } = 14;
 
     [ConfigSection("GeneralSettings")]
+    public static bool ShowModSourceTooltip { get; set; } = true;
+
     [ConfigSlider(1, 64)]
     public static int SfxPlayerLimit { get; set; } = 16;
 
