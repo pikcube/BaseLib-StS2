@@ -46,6 +46,9 @@ internal class BaseLibConfig : SimpleModConfig
             Access = FileDialog.AccessEnum.Filesystem,
             CurrentFile = "baselib_harmony_patch_dump.log",
         };
+        if (!string.IsNullOrWhiteSpace(HarmonyPatchDumpOutputPath))
+            dialog.CurrentPath = HarmonyPatchDumpOutputPath;
+
         dialog.AddFilter("*.log", "Log");
         dialog.AddFilter("*.txt", "Text");
 
@@ -56,10 +59,8 @@ internal class BaseLibConfig : SimpleModConfig
             config.ConfigReloaded();
             dialog.QueueFree();
         };
-        dialog.Canceled += dialog.QueueFree;
 
-        tree.Root.AddChild(dialog);
-        dialog.PopupCenteredRatio(0.55f);
+        NativeFileDialogChrome.Popup(dialog);
     }
 
     [ConfigButton("HarmonyDumpNow")]
