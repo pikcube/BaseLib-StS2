@@ -4,5 +4,5 @@
   "BASELIB-COMBAT_REWARD_RANDOM_CARD_UPGRADE": "Upgrade a random card.",
   "BASELIB-COMBAT_REWARD_CARD_TRANSFORM": "Transform {Upgrade:and Upgrade |}{cards:plural:a card|{} cards}",
   "BASELIB-COMBAT_REWARD_CARD_TRANSFORM.selectionScreenPrompt": "Choose {Amount:plural:a card:[blue]{}[/blue] cards} to [gold]Transform[/gold]{Upgrade: and [gold]Upgrade[/gold]|}",
-  "BASELIB-MOD_SOURCE.title": "From Mod"
+  "BASELIB-MOD_SOURCE.title": "WhatMod"
 }
