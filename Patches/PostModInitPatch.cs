@@ -11,7 +11,6 @@ using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Saves.Runs;
-using SmartFormat;
 using SmartFormat.Core.Extensions;
 
 namespace BaseLib.Patches;
@@ -79,7 +78,15 @@ class PostModInitPatch
             {
                 try
                 {
-                    Smart.Default.AddExtensions((IFormatter) type.CreateInstance());
+                    var formatter = (IFormatter) type.CreateInstance();
+                    if (LocManager._smartFormatter != null)
+                    {
+                        LocManager._smartFormatter.AddExtensions(formatter);
+                    }
+                    else
+                    {
+                        AddLaterFormatters.Add(formatter);
+                    }
                     BaseLibMain.Logger.Info($"Added custom format specifier {type.Name}");
                 }
                 catch (Exception e)
@@ -88,6 +95,16 @@ class PostModInitPatch
                 }
             }
         }
+    }
+    
+    private static readonly List<IFormatter> AddLaterFormatters = [];
+    [HarmonyPatch(typeof(LocManager), nameof(LocManager.LoadLocFormatters))]
+    [HarmonyPostfix]
+    private static void AddFormattersOnLocInit(LocManager __instance)
+    {
+        if (AddLaterFormatters.Count == 0) return;
+        BaseLibMain.Logger.Debug($"Added {AddLaterFormatters.Count} formatters after LoadLocFormatters.");
+        LocManager._smartFormatter.AddExtensions(AddLaterFormatters.ToArray());
     }
 
 
@@ -162,5 +179,29 @@ class PostModInitPatch
             return;
 
         field.GetValue(null); //Trigger field initialization
+    }
+    
+    /// <summary>
+    /// Registers custom scene paths.
+    /// Called through a patch because virtual properties like CustomVisualPath
+    /// may depend on fields set in derived constructors that haven't run yet when
+    /// the base constructor occurs.
+    /// </summary>
+    [HarmonyPatch(typeof(ModelDb), nameof(ModelDb.Preload))]
+    class RegisterSceneConversions
+    {
+        [HarmonyPostfix]
+        private static void EnsureScenePathsRegistered()
+        {
+            foreach (var type in ReflectionHelper.ModTypes)
+            {
+                if (type is not { IsAbstract: false, IsInterface: false }
+                    || !type.IsAssignableTo(typeof(AbstractModel))
+                    || !type.IsAssignableTo(typeof(ISceneConversions))) continue;
+                
+                var model = ModelDb.GetById<AbstractModel>(ModelDb.GetId(type));
+                (model as ISceneConversions)?.RegisterSceneConversions();
+            }
+        }
     }
 }
