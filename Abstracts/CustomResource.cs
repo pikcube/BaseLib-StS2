@@ -2,6 +2,7 @@
 using System.Reflection.Emit;
 using BaseLib.Extensions;
 using BaseLib.Hooks;
+using BaseLib.Patches.UI;
 using BaseLib.Utils;
 using BaseLib.Utils.Patching;
 using HarmonyLib;
@@ -10,11 +11,15 @@ using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Hooks;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Nodes.Cards;
 
 namespace BaseLib.Abstracts;
 
 #region patches
 
+/// <summary>
+/// <seealso cref="CustomResourceUiPatches"/>
+/// </summary>
 [HarmonyPatch]
 internal static class CustomResourcePatches
 {
@@ -183,7 +188,9 @@ internal static class CustomResourcePatches
 
 #endregion
 
-internal class ResourceHandler(string id, Func<PlayerCombatState, CustomResource> getResource,
+internal class ResourceHandler(string id, 
+    Func<PlayerCombatState, CustomResource> getResource,
+    Func<CardModel, ICustomResourceCost?> getCost,
     Action<PlayerCombatState> prep, Action<PlayerCombatState> cleanup,
     Func<PlayerCombatState, CardModel, UnplayableReason> resourceCheck,
     Func<CardModel, Task> spend,
@@ -197,6 +204,9 @@ internal class ResourceHandler(string id, Func<PlayerCombatState, CustomResource
     Func<CardModel, bool, bool> costsMoreThanZero) : IComparable<ResourceHandler>
 {
     public string Id { get; } = id;
+    
+    public Func<PlayerCombatState, CustomResource> GetResource { get; } = getResource;
+    public Func<CardModel, ICustomResourceCost?> GetCost { get; } = getCost;
     public Action<PlayerCombatState> Prep { get; } = prep;
     public Action<PlayerCombatState> Cleanup { get; } = cleanup;
     
@@ -237,7 +247,7 @@ public static class CustomResources<T> where T : CustomResource, new()
         _registered = true;
         
         CustomResourcePatches.RegisteredResources.InsertSorted(
-            new(resourceInstance.Id, Get, PrepForCombat, CleanupAfterCombat, ResourceCheck,
+            new(resourceInstance.Id, Get, Cost, PrepForCombat, CleanupAfterCombat, ResourceCheck,
                 Spend, RecordSpend, 
                 AfterCardPlayedCleanup, EndOfTurnCleanup,
                 SetToFreeThisCombat, SetToFreeThisTurn,
@@ -408,12 +418,260 @@ public static class CustomResources<T> where T : CustomResource, new()
         var isXCost = canonicalCost == int.MinValue;
         return CostField[card] = new CustomResourceCost<T>(card, isXCost ? 0 : canonicalCost, isXCost);
     }
+
+    /// <summary>
+    /// Retrieves the amount of this resource spent on this card play.
+    /// Default value of 0.
+    /// </summary>
+    public static int AmountSpent(CardPlay play)
+    {
+        return RecordedSpend[play];
+    }
+}
+
+/// <summary>
+/// Base interface for a custom resource for non-generic access
+/// </summary>
+public interface ICustomResourceCost
+{
+    /// <summary>
+    /// This card's "official" starting resource cost.
+    /// This is what would appear on the card if it was printed out on paper.
+    /// </summary>
+    int Canonical { get; }
+
+    /// <summary>
+    /// Whether this card has an resource cost of X.
+    /// X-costs automatically spend all of the player's remaining resource when played, and their effect should be
+    /// based on the amount spent.
+    /// </summary>
+    bool CostsX { get; }
+
+    /// <summary>
+    /// Was this card's resource cost just recently upgraded?
+    /// This is mainly used to show upgrade preview values in green.
+    /// This should be cleared after the upgrade is complete.
+    /// </summary>
+    bool WasJustUpgraded { get; set; }
+
+    /// <summary>
+    /// Does this resource cost have any local modifiers?
+    /// See <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.Local" /> for details.
+    /// </summary>
+    bool HasLocalModifiers { get; }
+
+    /// <summary>
+    /// Get this card's resource cost, including the specified modifier types.
+    /// See <see cref="T:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers" /> for details on what types are available.
+    /// </summary>
+    int GetWithModifiers(CostModifiers modifiers);
+    
+    /// <summary>
+    /// The amount of this resource most recently spent to play this X-cost card.
+    /// Used when duplicating X-cost cards, to make sure the duplicates are played with the same value.
+    /// 
+    /// WARNING: Only use this for calculations related to resources spent. If you're using this to calculate a
+    /// cost-X card's effect, use <see cref="ResolveXValue" /> instead, as it will take X-value
+    /// modifications (like <see cref="T:MegaCrit.Sts2.Core.Models.Relics.ChemicalX" />) into account.
+    /// </summary>
+    public int CapturedXValue { get; set; }
+
+    /// <summary>
+    /// Resolve this cost's X value. Should only be used in on-play logic.
+    /// Takes modifications to X values (like <see cref="T:MegaCrit.Sts2.Core.Models.Relics.ChemicalX" />) into account.
+    /// </summary>
+    int ResolveXValue();
+
+    /// <summary>
+    /// Get the amount of this resource that should be spent to play this card.
+    /// 
+    /// * For X-cost cards, this is the amount of the resource that its owner has.
+    /// * For normal cards, this is the current cost including all modifiers
+    ///   (see <see cref="GetWithModifiers(MegaCrit.Sts2.Core.Entities.Cards.CostModifiers)" /> with <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.All" />) clamped to 0.
+    /// 
+    /// The game uses this value when actually spending the resource to play the card.
+    /// Additionally, this is useful for effects that need to know how much WOULD be spent to play the card without
+    /// actually playing it, such as <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Scavenge" />.
+    /// </summary>
+    int GetAmountToSpend();
+
+    /// <summary>
+    /// Get the "resolved" cost of this card. This can mean one of two things:
+    /// 
+    /// * For X-cost cards, this is the captured X-cost value (see <see cref="CapturedXValue" />).
+    /// * For normal cards, this is the current cost including all modifiers
+    ///   (see <see cref="GetWithModifiers(MegaCrit.Sts2.Core.Entities.Cards.CostModifiers)" /> with <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.All" />) clamped to 0.
+    /// 
+    /// This is useful for effects that need to know the card's cost AFTER it was played, such as
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Relics.IntimidatingHelmet" />. For normal cards, these effects just care about the card's current cost
+    /// (including all modifiers). For X-cost cards, these effects care about the X-value that was set for the card when
+    /// it was played.
+    /// </summary>
+    int GetResolved();
+
+    /// <summary>
+    /// Checks if a card should be playable based on this cost.
+    /// </summary>
+    /// <returns><see cref="UnplayableReason.None"/> if the card is playable, a different reason otherwise.</returns>
+    UnplayableReason ResourceCheck(PlayerCombatState combatState, CardModel card);
+
+    /// <summary>
+    /// Set this cost to the specified amount until the card is played.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Eidolon" /> says "Reduce the cost of all cards in your Discard Pile to 0 until played."
+    /// </example>
+    /// <param name="cost">New cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void SetUntilPlayed(int cost, bool reduceOnly = false);
+
+    /// <summary>
+    /// Set this cost to the specified amount until the end of the current turn OR until the card is played, whichever
+    /// comes first.
+    /// Note that the text of these effects will just say "this turn"; the "or until played" part is left implicit
+    /// because it's wordy and rarely relevant.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.BulletTime" /> says "Reduce the cost of ALL cards in your Hand to 0 this turn."
+    /// </example>
+    /// <param name="cost">New cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void SetThisTurnOrUntilPlayed(int cost, bool reduceOnly = false);
+
+    /// <summary>
+    /// BE CAREFUL USING THIS! You usually want <see cref="SetThisTurnOrUntilPlayed(System.Int32,System.Boolean)" /> instead.
+    /// Set this cost to the specified amount until the end of the current turn.
+    /// Note that most effects that say "this turn" really mean "this turn or until played".
+    /// This method should only be used for the few effects that should last for multiple plays in the same turn.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Invoke" /> says "This card costs 0 if Osty has attacked this turn."
+    /// </example>
+    /// <param name="cost">New cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void SetThisTurn(int cost, bool reduceOnly = false);
+
+    /// <summary>
+    /// Set this cost to the specified amount for the rest of the combat.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Enlightenment" />+ says "Reduce the cost of ALL cards in your Hand to 1 this combat."
+    /// </example>
+    /// <param name="cost">New cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void SetThisCombat(int cost, bool reduceOnly = false);
+
+    /// <summary>
+    /// Add the specified amount to this cost until the card is played.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Enchantments.SlumberingEssence" /> says "If this card is in your hand at the end of turn, reduce its cost by 1
+    /// until it is played."
+    /// </example>
+    /// <param name="amount">Amount to add to the cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void AddUntilPlayed(int amount, bool reduceOnly = false);
+
+    /// <summary>
+    /// Add the specified amount to this cost until the end of the current turn OR until the card is played, whichever
+    /// comes first.
+    /// Note that the text of these effects will just say "this turn"; the "or until played" part is left implicit
+    /// because it's wordy and rarely relevant.
+    /// </summary>
+    /// <example>None yet. Update this if we add one!</example>
+    /// <param name="amount">Amount to add to the cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void AddThisTurnOrUntilPlayed(int amount, bool reduceOnly = false);
+
+    /// <summary>
+    /// BE CAREFUL USING THIS! You usually want <see cref="AddThisTurnOrUntilPlayed(System.Int32,System.Boolean)" /> instead.
+    /// Add the specified amount to this cost until the end of the current turn.
+    /// Note that most effects that say "this turn" really mean "this turn or until played".
+    /// This method should only be used for the few effects that should last for multiple plays in the same turn.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Pinpoint" /> says "Costs 1 less for each Skill played this turn."
+    /// </example>
+    /// <param name="amount">Amount to add to the cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void AddThisTurn(int amount, bool reduceOnly = false);
+
+    /// <summary>
+    /// Add the specified amount to this cost for the rest of the combat.
+    /// </summary>
+    /// <example>
+    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.KinglyKick" /> says "Whenever you draw this card, lower its cost by 1 this combat."
+    /// </example>
+    /// <param name="amount">Amount to add to the cost.</param>
+    /// <param name="reduceOnly">
+    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
+    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
+    /// </param>
+    void AddThisCombat(int amount, bool reduceOnly = false);
+
+    /// <summary>
+    /// Clear local cost modifiers that should last until the end of the turn.
+    /// </summary>
+    /// <returns>True if any modifiers were cleared and EnergyCostChanged should be invoked.</returns>
+    bool EndOfTurnCleanup();
+
+    /// <summary>
+    /// Clear local cost modifiers that should last until the card is played.
+    /// </summary>
+    /// <returns>True if any modifiers were cleared and EnergyCostChanged should be invoked.</returns>
+    bool AfterCardPlayedCleanup();
+
+    /// <summary>
+    /// Upgrade the cost of this card by the specified amount.
+    /// </summary>
+    /// <param name="addend">Amount to add to the current cost (usually negative).</param>
+    void UpgradeCostBy(int addend);
+
+    /// <summary>
+    /// Finalize an upgrade after calling UpgradeCostBy.
+    /// This clears out state that is used for displaying an upgrade preview.
+    /// </summary>
+    void FinalizeUpgrade();
+
+    /// <summary>Reset cost to base values during downgrade.</summary>
+    void ResetForDowngrade();
+
+    /// <summary>
+    /// This is mainly meant for internal usage.
+    /// The base game uses this externally only for <see cref="T:MegaCrit.Sts2.Core.Models.Cards.MadScience" />.
+    /// </summary>
+    void SetCustomBaseCost(int newBaseCost);
+    
+    // Visuals Methods
+
+    void UpdateCostVisuals(NCard nCard, PileType pileType);
 }
 
 /// <summary>
 /// A cost for a custom resource, equivalent to <see cref="CardEnergyCost"/>.
 /// </summary>
-public class CustomResourceCost<T> where T : CustomResource, new()
+public class CustomResourceCost<T> : ICustomResourceCost where T : CustomResource, new()
 {
     private readonly CardModel _card;
     private int _base;
@@ -425,30 +683,16 @@ public class CustomResourceCost<T> where T : CustomResource, new()
     /// </summary>
     private List<LocalCostModifier> _localModifiers = [];
 
-    /// <summary>
-    /// This card's "official" starting resource cost.
-    /// This is what would appear on the card if it was printed out on paper.
-    /// </summary>
+    /// <inheritdoc />
     public int Canonical { get; }
 
-    /// <summary>
-    /// Whether this card has an energy cost of X.
-    /// X-cost-cards automatically spend all of the player's remaining resource when played, and their effect is
-    /// multiplied by the amount spent.
-    /// </summary>
+    /// <inheritdoc />
     public bool CostsX { get; }
 
-    /// <summary>
-    /// Was this card's resource cost just recently upgraded?
-    /// This is mainly used to show upgrade preview values in green.
-    /// This should be cleared after the upgrade is complete.
-    /// </summary>
+    /// <inheritdoc />
     public bool WasJustUpgraded { get; set; }
 
-    /// <summary>
-    /// Does this resource cost have any local modifiers?
-    /// See <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.Local" /> for details.
-    /// </summary>
+    /// <inheritdoc />
     public bool HasLocalModifiers => _localModifiers.Count > 0;
 
     public CustomResourceCost(CardModel card, int canonicalCost, bool costsX)
@@ -459,10 +703,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         _base = Canonical;
     }
 
-    /// <summary>
-    /// Get this card's resource cost, including the specified modifier types.
-    /// See <see cref="T:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers" /> for details on what types are available.
-    /// </summary>
+    /// <inheritdoc />
     public int GetWithModifiers(CostModifiers modifiers)
     {
         var withModifiers = _base;
@@ -481,14 +722,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         return Math.Max(0, withModifiers);
     }
 
-    /// <summary>
-    /// The amount of this resource most recently spent to play this X-cost card.
-    /// Used when duplicating X-cost cards, to make sure the duplicates are played with the same value.
-    /// 
-    /// WARNING: Only use this for calculations related to resources spent. If you're using this to calculate a
-    /// cost-X card's effect, use <see cref="ResolveXValue" /> instead, as it will take X-value
-    /// modifications (like <see cref="T:MegaCrit.Sts2.Core.Models.Relics.ChemicalX" />) into account.
-    /// </summary>
+    /// <inheritdoc />
     public int CapturedXValue
     {
         get
@@ -505,11 +739,8 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             _capturedXValue = value;
         }
     }
-
-    /// <summary>
-    /// Resolve this cost's X value. Should only be used in on-play logic.
-    /// Takes modifications to X values (like <see cref="T:MegaCrit.Sts2.Core.Models.Relics.ChemicalX" />) into account.
-    /// </summary>
+    
+    /// <inheritdoc />
     public int ResolveXValue()
     {
         if (!CostsX)
@@ -517,17 +748,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         return Hook.ModifyXValue(_card.CombatState, _card, CapturedXValue);
     }
 
-    /// <summary>
-    /// Get the amount of this resource that should be spent to play this card.
-    /// 
-    /// * For X-cost cards, this is the amount of the resource that its owner has.
-    /// * For normal cards, this is the current cost including all modifiers
-    ///   (see <see cref="GetWithModifiers(MegaCrit.Sts2.Core.Entities.Cards.CostModifiers)" /> with <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.All" />) clamped to 0.
-    /// 
-    /// The game uses this value when actually spending the resource to play the card.
-    /// Additionally, this is useful for effects that need to know how much WOULD be spent to play the card without
-    /// actually playing it, such as <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Scavenge" />.
-    /// </summary>
+    /// <inheritdoc />
     public int GetAmountToSpend()
     {
         if (!CostsX)
@@ -536,27 +757,13 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         return playerCombatState?.Energy ?? 0;
     }
 
-    /// <summary>
-    /// Get the "resolved" cost of this card. This can mean one of two things:
-    /// 
-    /// * For X-cost cards, this is the captured X-cost value (see <see cref="CapturedXValue" />).
-    /// * For normal cards, this is the current cost including all modifiers
-    ///   (see <see cref="GetWithModifiers(MegaCrit.Sts2.Core.Entities.Cards.CostModifiers)" /> with <see cref="F:MegaCrit.Sts2.Core.Entities.Cards.CostModifiers.All" />) clamped to 0.
-    /// 
-    /// This is useful for effects that need to know the card's cost AFTER it was played, such as
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Relics.IntimidatingHelmet" />. For normal cards, these effects just care about the card's current cost
-    /// (including all modifiers). For X-cost cards, these effects care about the X-value that was set for the card when
-    /// it was played.
-    /// </summary>
+    /// <inheritdoc />
     public int GetResolved()
     {
         return CostsX ? CapturedXValue : Math.Max(0, GetWithModifiers(CostModifiers.All));
     }
 
-    /// <summary>
-    /// Checks if a card should be playable based on this cost.
-    /// </summary>
-    /// <returns><see cref="UnplayableReason.None"/> if the card is playable, a different reason otherwise.</returns>
+    /// <inheritdoc />
     public UnplayableReason ResourceCheck(PlayerCombatState combatState, CardModel card)
     {
         var resource = CustomResources<T>.Get(combatState);
@@ -564,17 +771,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         return resource.CanAfford(card, required) ? UnplayableReason.None : resource.UnplayableReason;
     }
 
-    /// <summary>
-    /// Set this cost to the specified amount until the card is played.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Eidolon" /> says "Reduce the cost of all cards in your Discard Pile to 0 until played."
-    /// </example>
-    /// <param name="cost">New cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void SetUntilPlayed(int cost, bool reduceOnly = false)
     {
         if (cost == 0 && Canonical < 0)
@@ -583,20 +780,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.WhenPlayed, reduceOnly));
     }
 
-    /// <summary>
-    /// Set this cost to the specified amount until the end of the current turn OR until the card is played, whichever
-    /// comes first.
-    /// Note that the text of these effects will just say "this turn"; the "or until played" part is left implicit
-    /// because it's wordy and rarely relevant.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.BulletTime" /> says "Reduce the cost of ALL cards in your Hand to 0 this turn."
-    /// </example>
-    /// <param name="cost">New cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void SetThisTurnOrUntilPlayed(int cost, bool reduceOnly = false)
     {
         if (cost == 0 && Canonical < 0)
@@ -605,20 +789,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfTurn | LocalCostModifierExpiration.WhenPlayed, reduceOnly));
     }
 
-    /// <summary>
-    /// BE CAREFUL USING THIS! You usually want <see cref="SetThisTurnOrUntilPlayed(System.Int32,System.Boolean)" /> instead.
-    /// Set this cost to the specified amount until the end of the current turn.
-    /// Note that most effects that say "this turn" really mean "this turn or until played".
-    /// This method should only be used for the few effects that should last for multiple plays in the same turn.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Invoke" /> says "This card costs 0 if Osty has attacked this turn."
-    /// </example>
-    /// <param name="cost">New cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void SetThisTurn(int cost, bool reduceOnly = false)
     {
         if (cost == 0 && Canonical < 0)
@@ -627,17 +798,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfTurn, reduceOnly));
     }
 
-    /// <summary>
-    /// Set this cost to the specified amount for the rest of the combat.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Enlightenment" />+ says "Reduce the cost of ALL cards in your Hand to 1 this combat."
-    /// </example>
-    /// <param name="cost">New cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void SetThisCombat(int cost, bool reduceOnly = false)
     {
         if (cost == 0 && Canonical < 0)
@@ -646,18 +807,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfCombat, reduceOnly));
     }
 
-    /// <summary>
-    /// Add the specified amount to this cost until the card is played.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Enchantments.SlumberingEssence" /> says "If this card is in your hand at the end of turn, reduce its cost by 1
-    /// until it is played."
-    /// </example>
-    /// <param name="amount">Amount to add to the cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void AddUntilPlayed(int amount, bool reduceOnly = false)
     {
         if (amount == 0)
@@ -666,18 +816,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.WhenPlayed, reduceOnly));
     }
 
-    /// <summary>
-    /// Add the specified amount to this cost until the end of the current turn OR until the card is played, whichever
-    /// comes first.
-    /// Note that the text of these effects will just say "this turn"; the "or until played" part is left implicit
-    /// because it's wordy and rarely relevant.
-    /// </summary>
-    /// <example>None yet. Update this if we add one!</example>
-    /// <param name="amount">Amount to add to the cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void AddThisTurnOrUntilPlayed(int amount, bool reduceOnly = false)
     {
         if (amount == 0)
@@ -686,20 +825,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfTurn | LocalCostModifierExpiration.WhenPlayed, reduceOnly));
     }
 
-    /// <summary>
-    /// BE CAREFUL USING THIS! You usually want <see cref="AddThisTurnOrUntilPlayed(System.Int32,System.Boolean)" /> instead.
-    /// Add the specified amount to this cost until the end of the current turn.
-    /// Note that most effects that say "this turn" really mean "this turn or until played".
-    /// This method should only be used for the few effects that should last for multiple plays in the same turn.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.Pinpoint" /> says "Costs 1 less for each Skill played this turn."
-    /// </example>
-    /// <param name="amount">Amount to add to the cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void AddThisTurn(int amount, bool reduceOnly = false)
     {
         if (amount == 0)
@@ -708,17 +834,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfTurn, reduceOnly));
     }
 
-    /// <summary>
-    /// Add the specified amount to this cost for the rest of the combat.
-    /// </summary>
-    /// <example>
-    /// <see cref="T:MegaCrit.Sts2.Core.Models.Cards.KinglyKick" /> says "Whenever you draw this card, lower its cost by 1 this combat."
-    /// </example>
-    /// <param name="amount">Amount to add to the cost.</param>
-    /// <param name="reduceOnly">
-    /// Whether this modifier should only be included in the cost calculation if it would lower the current cost.
-    /// See <see cref="P:MegaCrit.Sts2.Core.Entities.Cards.LocalCostModifier.IsReduceOnly" /> for details.
-    /// </param>
+    /// <inheritdoc />
     public void AddThisCombat(int amount, bool reduceOnly = false)
     {
         if (amount == 0)
@@ -727,10 +843,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             LocalCostModifierExpiration.EndOfCombat, reduceOnly));
     }
 
-    /// <summary>
-    /// Clear local cost modifiers that should last until the end of the turn.
-    /// </summary>
-    /// <returns>True if any modifiers were cleared and EnergyCostChanged should be invoked.</returns>
+    /// <inheritdoc />
     public bool EndOfTurnCleanup()
     {
         _card.AssertMutable();
@@ -738,10 +851,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             m.Expiration.HasFlag(LocalCostModifierExpiration.EndOfTurn)) > 0;
     }
 
-    /// <summary>
-    /// Clear local cost modifiers that should last until the card is played.
-    /// </summary>
-    /// <returns>True if any modifiers were cleared and EnergyCostChanged should be invoked.</returns>
+    /// <inheritdoc />
     public bool AfterCardPlayedCleanup()
     {
         _card.AssertMutable();
@@ -749,10 +859,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             m.Expiration.HasFlag(LocalCostModifierExpiration.WhenPlayed)) > 0;
     }
 
-    /// <summary>
-    /// Upgrade the cost of this card by the specified amount.
-    /// </summary>
-    /// <param name="addend">Amount to add to the current cost (usually negative).</param>
+    /// <inheritdoc />
     public void UpgradeCostBy(int addend)
     {
         _card.AssertMutable();
@@ -773,10 +880,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         SetCustomBaseCost(newBaseCost);
     }
 
-    /// <summary>
-    /// Finalize an upgrade after calling UpgradeCostBy.
-    /// This clears out state that is used for displaying an upgrade preview.
-    /// </summary>
+    /// <inheritdoc />
     public void FinalizeUpgrade()
     {
         _card.AssertMutable();
@@ -791,10 +895,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
         _card.InvokeEnergyCostChanged(); // Flashes NCard if it exists and updates combat state
     }
 
-    /// <summary>
-    /// This is mainly meant for internal usage.
-    /// The base game uses this externally only for <see cref="T:MegaCrit.Sts2.Core.Models.Cards.MadScience" />.
-    /// </summary>
+    /// <inheritdoc />
     public void SetCustomBaseCost(int newBaseCost)
     {
         _card.AssertMutable();
@@ -821,6 +922,13 @@ public class CustomResourceCost<T> where T : CustomResource, new()
             _localModifiers = list
         };
     }
+    
+    // Visuals
+
+    public void UpdateCostVisuals(NCard nCard, PileType pileType)
+    {
+        //TODO
+    }
 }
 
 /// <summary>
@@ -828,6 +936,7 @@ public class CustomResourceCost<T> where T : CustomResource, new()
 /// Resources do not exist outside of combat; an instance of each resource class is created at the start of each
 /// combat attached to each PlayerCombatState.
 /// Implementations of this interface should provide a parameterless constructor.
+/// An instance of each resource is created during startup for registration using their ID and VisualsHandler properties.
 /// </summary>
 public abstract class CustomResource(string id)
 {
@@ -842,6 +951,18 @@ public abstract class CustomResource(string id)
     /// A unique ID used to identify and sort this resource type.
     /// </summary>
     public string Id { get; protected set; } = id;
+
+    /// <summary>
+    /// Return new instance of class that will be used as a singleton to receive card cost UI update events.
+    /// Will be called during startup of game, when the resource is registered.
+    /// </summary>
+    public abstract ICustomCostVisualsHandler CostVisualsHandler();
+
+    /// <summary>
+    /// Return new instance of class that will be used as a singleton to receive resource amount UI update events.
+    /// Will be called during startup of game, when the resource is registered.
+    /// </summary>
+    public abstract ICustomResourceVisualsHandler ResourceVisualsHandler();
 
     /// <summary>
     /// Whether methods that make a card free to play should also set this cost.
@@ -877,16 +998,19 @@ public abstract class CustomResource(string id)
 
     /// <summary>
     /// Called to spend this resource. Defaults to behaving the same as calling <see cref="ModifyAmount"/> with negative amount,
-    /// then triggers 
+    /// then triggers <seealso cref="BaseLibHooks.AfterSpendCustomResource{T}"/>
     /// </summary>
     /// <param name="spender">The model these resources are being spent on.</param>
     /// <param name="amount">The amount of this resource to spend.</param>
-    /// <typeparam name="T"></typeparam>
     public virtual async Task Spend<T>(ICombatState combatState, AbstractModel? spender, int amount) where T : CustomResource
     {
+        if (this is not T thisT)
+            throw new ArgumentException(
+                "Attempted to call Spend on a resource with a generic type that does not match the resource.");
+        
         ModifyAmount(-amount);
 
-        BaseLibHooks.AfterSpendCustomResource<T>(combatState, spender, amount);
+        await BaseLibHooks.AfterSpendCustomResource(combatState, thisT, spender, amount);
     }
 
     /// <summary>
@@ -928,4 +1052,14 @@ public abstract class BasicCustomResource(string resourceId, int setEachTurn = -
     {
         Amount = 0;
     }
+
+    public override ICustomCostVisualsHandler CostVisualsHandler()
+    {
+        return new BasicCostVisualsHandler(this);
+    }
+}
+
+public class BasicCostVisualsHandler(CustomResource resource) : ICustomCostVisualsHandler
+{
+    
 }
