@@ -15,7 +15,7 @@
   "BASELIB-GENERAL_SETTINGS.title": "Общие настройки",
 
   "BASELIB-SHOW_MOD_SOURCE_TOOLTIP.title": "Показывать мод-источник в подсказках",
-  "BASELIB-SHOW_MOD_SOURCE_TOOLTIP.hover.desc": "Добавляет подсказку, показывающую, из какого мода взяты карта, реликвия, сила или зелье.",
+  "BASELIB-SHOW_MOD_SOURCE_TOOLTIP.hover.desc": "Добавляет подсказку, показывающую, из какого мода взяты карты, реликвии, силы или зелья.",
 
   "BASELIB-SFX_PLAYER_LIMIT.title": "Максимальное количество звуковых эффектов",
   "BASELIB-SFX_PLAYER_LIMIT.hover.desc": "Определяет максимальное количество одновременных звуковых эффектов, возпроизводимых при помощи BaseLib.",
@@ -26,7 +26,7 @@
   "BASELIB-OPEN_LOG_WINDOW_ON_STARTUP.hover.desc": "Автоматически открывает окно логов BaseLib при загрузке главного меню.",
   
   "BASELIB-OPEN_LOG_WINDOW_ON_ERROR.title": "Открывать окно логов при ошибках",
-  "BASELIB-OPEN_LOG_WINDOW_ON_ERROR.hover.desc": "Открывает окно логов BaseLib при возникновении ошибок.",
+  "BASELIB-OPEN_LOG_WINDOW_ON_ERROR.hover.desc": "Автоматически открывает окно логов BaseLib при возникновении ошибок.",
 
   "BASELIB-LIMITED_LOG_SIZE.title": "Размер истории логов",
   "BASELIB-LIMITED_LOG_SIZE.hover.desc": "Максимальное число строк, отображаемых в окне логов.",
