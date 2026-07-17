@@ -7,7 +7,7 @@ namespace BaseLib.Hooks;
 /// <summary>
 /// Interface for a model that modifies a custom resource cost during combat.
 /// Equivalent to basegame <see cref="AbstractModel.TryModifyEnergyCostInCombat"/>.
-/// Used by <see cref="CustomResourceCost{T}.GetWithModifiers"/> through <see cref="BaseLibHooks."/>
+/// Used by <see cref="CustomResourceCost{T}.GetWithModifiers"/> through <see cref="BaseLibHooks.ModifyResourceCostInCombat"/>
 /// </summary>
 public interface IModifyResourceCostInCombat<T> where T : CustomResource
 {

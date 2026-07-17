@@ -187,12 +187,13 @@ class PostModInitPatch
             //TODO - Remove on next beta->main merge; SavedPropertiesTypeCache already loads modded types.
             if (hasSavedProperty)
             {
-                if (SavedPropertiesTypeCache._cache.Count == 0)
+                /*if (SavedPropertiesTypeCache._cache.Count == 0)
                 {
                     BaseLibMain.Logger.Warn("Adding saved properties too early; type cache is still empty.");
-                }
+                }*/
                 
-                SavedPropertiesTypeCache.InjectTypeIntoCache(type);
+                BetaMainCompatibility.CacheSavedProperties(type);
+                //SavedPropertiesTypeCache.InjectTypeIntoCache(type);
             }
         }
         SavedSpireFieldPatch.AddFieldsSorted();

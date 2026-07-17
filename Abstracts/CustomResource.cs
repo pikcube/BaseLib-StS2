@@ -68,14 +68,14 @@ internal static class CustomResourcePatches
     }
 
     // Spend resources
-    [HarmonyPatch(typeof(CardModel), nameof(CardModel.SpendResources))]
+    [HarmonyPatch(typeof(CardModel), nameof(CardModel.SpendResources), MethodType.Async)]
     [HarmonyTranspiler]
-    static IEnumerable<CodeInstruction> SpendAdditionalCosts(ILGenerator generator, IEnumerable<CodeInstruction> instructions, MethodBase original)
+    static IEnumerable<CodeInstruction> AddSpendAdditionalCosts(ILGenerator generator, IEnumerable<CodeInstruction> instructions, MethodBase original)
     {
         return AsyncMethodCall.Create(generator, instructions, original, 
             AccessTools.Method(typeof(CustomResourcePatches), nameof(SpendAdditionalCosts)), afterState: original);
     }
-    static async void SpendAdditionalCosts(CardModel __instance)
+    static async Task SpendAdditionalCosts(CardModel __instance)
     {
         foreach (var resource in RegisteredResources)
         {
@@ -1057,9 +1057,19 @@ public abstract class BasicCustomResource(string resourceId, int setEachTurn = -
     {
         return new BasicCostVisualsHandler(this);
     }
+
+    public override ICustomResourceVisualsHandler ResourceVisualsHandler()
+    {
+        return new BasicResourceVisualsHandler(this);
+    }
 }
 
 public class BasicCostVisualsHandler(CustomResource resource) : ICustomCostVisualsHandler
+{
+    
+}
+
+public class BasicResourceVisualsHandler(CustomResource resource) : ICustomResourceVisualsHandler
 {
     
 }
