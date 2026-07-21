@@ -977,6 +977,7 @@ public class CustomResourceCost<T> : ICustomResourceCost where T : CustomResourc
             _base = _base,
             _capturedXValue = _capturedXValue,
             WasJustUpgraded = WasJustUpgraded,
+            _forceOptional = _forceOptional,
             _localModifiers = list
         };
     }
