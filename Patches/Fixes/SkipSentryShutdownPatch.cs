@@ -32,9 +32,7 @@ static class SkipSentryShutdownPatch
             return patcher;
         }
         
-        return matched.ReplaceLastMatch([CodeInstruction.Call(typeof(SkipSentryShutdownPatch), nameof(SkipShutdown))])
-            .PrintLog(BaseLibMain.Logger)
-            .PrintResult(BaseLibMain.Logger);
+        return matched.ReplaceLastMatch([CodeInstruction.Call(typeof(SkipSentryShutdownPatch), nameof(SkipShutdown))]);
     }
 
     private static Variant SkipShutdown(GodotObject objInstance, StringName methodName, params Variant[] ignoreArgs)
